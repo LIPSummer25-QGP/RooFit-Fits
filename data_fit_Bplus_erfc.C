@@ -27,7 +27,27 @@ using namespace RooFit;
 #include <RooFitResult.h>
 #include <RooFit.h>
 #include <RooCmdArg.h>
+#include <RooCurve.h>
 
+
+
+// Aux: take the y-value from the drawn curve at a given mass (for vertical line heights)
+double getYatMass(RooPlot* frame, double mass) {
+    for (int i = 0; i < frame->numItems(); ++i) {
+        RooCurve* curve = dynamic_cast<RooCurve*>(frame->getObject(i));
+        if (!curve) continue;
+        int n = curve->GetN();
+        double* x = curve->GetX();
+        double* y = curve->GetY();
+        for (int j = 0; j < n - 1; ++j) {
+            if (x[j] <= mass && mass <= x[j+1]) {
+                double slope = (y[j+1] - y[j]) / (x[j+1] - x[j]);
+                return y[j] + slope * (mass - x[j]);
+            }
+        }
+    }
+    return 0.0;
+}
 
 
 
@@ -146,44 +166,52 @@ void total_data_fit_erfc_Bu() {
 
     double f_s = sig_yield_in_region / mc_yield_in_signal;  // f_s calculation
 
-    // Plotting on a canvas
-    TCanvas *c = new TCanvas("c", "Bmass Fit (Gaussian model)", 800, 600);
+    // ---------- Canvas with two pads ----------
+    TCanvas* c = new TCanvas("c", "Bmass Fit with Pulls (ERFC model)", 800, 800);
+    c->Divide(1, 2);
+
+    // ---------- Top pad (fit) ----------
+    TPad* p1 = (TPad*)c->cd(1);
+    p1->SetPad(0.0, 0.25, 1.0, 1.0);
+    p1->SetBottomMargin(0.02);
+    p1->Draw();
+    p1->cd();
+
     RooPlot* frame = B_mass.frame();
-    dataset.plotOn(frame, MarkerStyle(20), MarkerSize(1.2), Name("data"));
+
+    // Plot data + model with the same naming/styles used for pulls
+    dataset.plotOn(frame, MarkerStyle(20), MarkerSize(1.2), Name("data"), DataError(RooAbsData::Poisson));
     model.plotOn(frame, LineColor(kBlue), LineWidth(2), Name("global")); // Total model component
-    model.plotOn(frame, Components(expo_ext), LineColor(kRed), LineStyle(kDashed), LineWidth(2), Name("background")); // Background component
+    model.plotOn(frame, Components(expo_ext), LineColor(kRed), LineStyle(kDashed), LineWidth(2), Name("background")); // Exponential background
     model.plotOn(frame, Components(erfc_ext), LineColor(kMagenta), LineStyle(kDotted), LineWidth(2), Name("erfc_bkg")); // ERFC background
     model.plotOn(frame, Components(signal), LineColor(kGreen+2), LineStyle(kDashed), LineWidth(2), Name("signal")); // Signal component
-    //model.plotOn(frame, Components(gauss1), LineColor(kMagenta+2), LineStyle(kDotted), LineWidth(1)); // Gauss 1
-    //model.plotOn(frame, Components(gauss2), LineColor(kOrange+7), LineStyle(kDotted), LineWidth(1)); // Gauss 2
 
     frame->SetTitle("");
+    frame->GetYaxis()->SetTitleOffset(1.5);
+    frame->GetXaxis()->SetLabelSize(0);  // hide x labels on top pad
     frame->GetXaxis()->SetTitle("m_{J/#Psi K^{+}} [GeV/c^{2}]");
-    frame->GetYaxis()->SetTitle(Form("Events"));
+    frame->GetYaxis()->SetTitle("Events");
     frame->Draw();
 
-    // Draw vertical lines at the edges of the signal region
-    double total_yield = Nsig.getVal() + Nbkg.getVal();
-    B_mass.setVal(min_signal);
-    double y_low = model.getVal(RooArgSet(B_mass)) * total_yield * bin_width;
-    B_mass.setVal(max_signal);
-    double y_high = model.getVal(RooArgSet(B_mass)) * total_yield * bin_width;
-    TLine* line_low = new TLine(min_signal, 0, min_signal, y_low);
+    // Vertical dashed lines at signal-region edges (heights taken from drawn curve)
+    double y_low  = getYatMass(frame, min_signal);
+    double y_high = getYatMass(frame, max_signal);
+
+    TLine* line_low  = new TLine(min_signal, 0, min_signal, y_low);
     TLine* line_high = new TLine(max_signal, 0, max_signal, y_high);
-    line_low->SetLineColor(kBlack);
-    line_low->SetLineStyle(2);
-    line_low->SetLineWidth(2);
-    line_high->SetLineColor(kBlack);
-    line_high->SetLineStyle(2);
-    line_high->SetLineWidth(2);
-    line_low->Draw("same");
-    line_high->Draw("same");
+    for (TLine* l : {line_low, line_high}) {
+        l->SetLineColor(kBlack);
+        l->SetLineStyle(2);
+        l->SetLineWidth(2);
+        l->Draw("same");
+    }
 
     // Calculate chi2/ndf for the fit
     int nParams = result->floatParsFinal().getSize();
     double chi2 = frame->chiSquare(nParams);
 
-    // Create a legend (top-right) for the plot
+    // ---------- Legend (same place), on TOP pad ----------
+    p1->cd();
     TLegend* legend = new TLegend(0.56, 0.66, 0.88, 0.88);
     legend->SetTextFont(42);
     legend->SetTextSize(0.025);
@@ -197,14 +225,14 @@ void total_data_fit_erfc_Bu() {
     legend->AddEntry(frame->findObject("global"), "Total Fit (Signal + Background)", "l");
     legend->Draw();
 
-    // TPaveText for fit parameters (bottom-right)
+    // ---------- TPaveText (same place), on TOP pad ----------
+    p1->cd();
     TPaveText* pave = new TPaveText(0.64, 0.30, 0.88, 0.66, "NDC");
     pave->SetTextAlign(12);
     pave->SetTextFont(42);
     pave->SetTextSize(0.025);
     pave->SetFillColor(0);
     pave->SetBorderSize(1);
-
     // Signal: Double Gaussian
     pave->AddText(Form("Mean = %.5f #pm %.5f", mean.getVal(), mean.getError()));
     pave->AddText(Form("#sigma_{1} = %.5f #pm %.5f", sigma1.getVal(), sigma1.getError()));
@@ -220,10 +248,10 @@ void total_data_fit_erfc_Bu() {
     pave->AddText(Form("N_{erfc} = %.1f #pm %.1f", Nerfc.getVal(), Nerfc.getError()));
     // Chi2
     pave->AddText(Form("#chi^{2}/ndf = %.2f", chi2));
-
     pave->Draw();
 
-    // TPaveText for f_b and f_s (top-left or another suitable position)
+    // ---------- f_b / f_s box (same place), on TOP pad ----------
+    p1->cd();
     TPaveText* pave_fb_fs = new TPaveText(0.44, 0.77, 0.56, 0.88, "NDC");
     pave_fb_fs->SetTextAlign(12);
     pave_fb_fs->SetTextFont(42);
@@ -234,8 +262,43 @@ void total_data_fit_erfc_Bu() {
     pave_fb_fs->AddText(Form("f_{s} = %.3f", f_s));
     pave_fb_fs->Draw();
 
+    // ---------- Bottom pad (pulls) ----------
+    TPad* p2 = (TPad*)c->cd(2);
+    p2->SetPad(0.0, 0.0, 1.0, 0.25);
+    p2->SetTopMargin(0.05);
+    p2->SetBottomMargin(0.25);
+    p2->Draw();
+    p2->cd();
+
+    RooPlot* pullFrame = B_mass.frame();
+    RooHist* pullHist = frame->pullHist("data", "global");  // names must match Name("data") and Name("global")
+    pullHist->SetMarkerSize(0.6);
+    pullFrame->addPlotable(pullHist, "XP");
+
+    pullFrame->SetTitle("");
+    pullFrame->GetYaxis()->SetTitle("Pull");
+    pullFrame->GetYaxis()->SetNdivisions(505);
+    pullFrame->GetYaxis()->SetTitleSize(0.10);
+    pullFrame->GetYaxis()->SetTitleOffset(0.40);
+    pullFrame->GetYaxis()->SetLabelSize(0.08);
+    pullFrame->GetXaxis()->SetTitle("m_{J/#Psi K^{+}} [GeV/c^{2}]");
+    pullFrame->GetXaxis()->SetTitleSize(0.10);
+    pullFrame->GetXaxis()->SetTitleOffset(1.0);
+    pullFrame->GetXaxis()->SetLabelSize(0.08);
+    pullFrame->SetMinimum(-3.5);
+    pullFrame->SetMaximum(3.5);
+    pullFrame->Draw("AP");
+
+    // Zero line
+    TLine* zeroLine = new TLine(xlow, 0, xhigh, 0);
+    zeroLine->SetLineColor(kBlue);
+    zeroLine->SetLineStyle(1);
+    zeroLine->SetLineWidth(1);
+    zeroLine->Draw("same");
+
+
     // Save the canvas to a file
-    TString name_file = "Bu_Total_Fit_Erfc.pdf";
+    TString name_file = "Bu_Total_Fit_Erfc_with_Pulls.pdf";
     c->SaveAs(name_file);
 
     // Console output summary
@@ -249,9 +312,10 @@ void total_data_fit_erfc_Bu() {
     std::cout << "f_s = " << f_s << std::endl << std::endl;
 
     // Clean up
-    delete c;
     delete line_low;
     delete line_high;
+    delete zeroLine;
+    delete c;
 }
 
 
