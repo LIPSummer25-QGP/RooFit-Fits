@@ -367,7 +367,7 @@ void total_data_fit_PSI_and_X3872(){
     pave->AddText(Form("a_{4} = %.4f #pm %.4f", a4.getVal(), a4.getError()));
     pave->AddText(Form("N_{bkg} = %.1f #pm %.1f", Nbkg.getVal(), Nbkg.getError()));
     
-    //pave->AddText(Form("#chi^{2}/ndf = %.2f", chi2));
+    pave->AddText(Form("#chi^{2}/ndf = %.2f", chi2));
 
     pave->Draw();
 
