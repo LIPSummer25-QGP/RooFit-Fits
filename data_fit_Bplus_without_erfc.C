@@ -52,8 +52,8 @@ double getYatMass(RooPlot* frame, double mass) {
 
 // B+ Particle
 void total_data_fit_Bu() {
-    double min_signal = 5.1732;
-    double max_signal = 5.3876;
+    double min_signal = 5.17310;
+    double max_signal = 5.38772;
 
     double xlow = 5.0;
     double xhigh = 6.0;
