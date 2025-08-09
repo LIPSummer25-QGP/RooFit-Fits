@@ -27,6 +27,8 @@ using namespace RooFit;
 #include <RooFitResult.h>
 #include <RooFit.h>
 #include <RooCmdArg.h>
+#include <RooCurve.h>       
+#include <RooChebychev.h>
 
 
 
@@ -54,6 +56,8 @@ double getYatMass(RooPlot* frame, double mass) {
 
 
 void total_data_fit_PSI_and_X3872(){
+    const int nbins_plot = 100; // Number of Bins for the Plot
+
     double min_signal_psi2s = 3.65807;
     double max_signal_psi2s = 3.71585;
     
@@ -62,8 +66,8 @@ void total_data_fit_PSI_and_X3872(){
 
     double xlow = 3.6;
     double xhigh = 4.0;
-    int nbins = 150;
-    double bin_width = (xhigh - xlow)/nbins;
+
+    const double bin_width_plot = (xhigh - xlow) / nbins_plot;
 
 
     // Load ROOT file and TTree
@@ -241,18 +245,27 @@ void total_data_fit_PSI_and_X3872(){
     p2->SetBottomMargin(0.25);
     p2->Draw();
 
-    // ---------- Plotting the Fit ----------
+    // Plotting the Fit
     p1->cd();
-    RooPlot* frame = B_mass.frame();
-    dataset.plotOn(frame, MarkerStyle(20), MarkerSize(1.2), Name("data"), DataError(RooAbsData::Poisson));
+    RooPlot* frame = B_mass.frame(Range(xlow, xhigh), Bins(nbins_plot));
+    dataset.plotOn(frame,
+                Binning(nbins_plot),                           // plot-only granularity
+                MarkerStyle(20), MarkerSize(1.2),
+                Name("data"),
+                DataError(RooAbsData::Poisson));
 
-    model.plotOn(frame, LineColor(kBlue), LineWidth(2), Name("global"), Range("fitRange"), NormRange("fitRange"));
+    // Draw components
     model.plotOn(frame, Components(signal_ext_psi2s), LineColor(kGreen+2), LineStyle(kDashed), LineWidth(2), Name("psi2s"));
-    model.plotOn(frame, Components(signal_ext_x), LineColor(kCyan+2), LineStyle(kDashed), LineWidth(2), Name("x3872"));
-    model.plotOn(frame, Components(bkg_pdf), LineColor(kRed), LineStyle(kDashed), LineWidth(2), Name("poly4"));
-    model.plotOn(frame, Components(signal_raw_x), LineColor(kViolet+1), LineStyle(kDotted), LineWidth(1));
+    model.plotOn(frame, Components(signal_ext_x),     LineColor(kCyan+2),  LineStyle(kDashed), LineWidth(2), Name("x3872"));
+    model.plotOn(frame, Components(bkg_pdf),          LineColor(kRed),     LineStyle(kDashed), LineWidth(2), Name("poly4"));
+    model.plotOn(frame, Components(signal_raw_x),     LineColor(kViolet+1),LineStyle(kDotted), LineWidth(1));
+
+    // Draw the total model 
+    model.plotOn(frame, LineColor(kBlue), LineWidth(2), Name("global"), Range("fitRange"), NormRange("fitRange"));
+
 
     frame->SetTitle("");
+    frame->GetYaxis()->SetTitle(Form("Events / ( %.4f )", bin_width_plot));
     frame->GetYaxis()->SetTitleOffset(1.5);
     frame->GetXaxis()->SetLabelSize(0);  // hide x labels
     frame->Draw();
@@ -292,7 +305,7 @@ void total_data_fit_PSI_and_X3872(){
 
     // ---------- Plotting the Pulls ----------
     p2->cd();
-    RooPlot* pullFrame = B_mass.frame();
+    RooPlot* pullFrame = B_mass.frame(Range(xlow, xhigh), Bins(nbins_plot));
     RooHist* pullHist = frame->pullHist("data", "global");
     pullHist->SetMarkerSize(0.6);
     pullFrame->addPlotable(pullHist, "XP");
@@ -321,7 +334,8 @@ void total_data_fit_PSI_and_X3872(){
 
     // Calculate chi2/ndf
     int nParams = result->floatParsFinal().getSize();
-    double chi2 = frame->chiSquare(nParams);
+    double chi2 = frame->chiSquare("global", "data", nParams);  
+
 
 
     // TPaveText for fit parameters
