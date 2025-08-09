@@ -168,19 +168,19 @@ void fit_mc_signal_roofit(TString particle) {
         params.mean_max = 5.3;
 
         params.sigma1_init = 0.014;
-        params.sigma1_min = 0.0125;
-        params.sigma1_max = 0.0155;
+        params.sigma1_min = 0.001;
+        params.sigma1_max = 0.07;
 
         params.sigma2_init = 0.034;
-        params.sigma2_min = 0.031;
-        params.sigma2_max = 0.037;
+        params.sigma2_min = 0.001;
+        params.sigma2_max = 0.09;
 
         params.c1_init = 0.8;
-        params.c1_min  = 0.77;
-        params.c1_max  = 0.83;
+        params.c1_min  = 0.01;
+        params.c1_max  = 0.99;
     
-        params.N_min = 152;
-        params.N_max = 162;
+        params.N_min = 0;
+        params.N_max = 90000;
     }
     else if (particle == "Bu"){
         params.interval_fit_min = 5.18;
@@ -191,19 +191,19 @@ void fit_mc_signal_roofit(TString particle) {
         params.mean_max = 5.3;
 
         params.sigma1_init = 0.036;
-        params.sigma1_min = 0.03;
-        params.sigma1_max = 0.044;
+        params.sigma1_min = 0.001;
+        params.sigma1_max = 0.09;
 
         params.sigma2_init = 0.011;
-        params.sigma2_min = 0.008;
-        params.sigma2_max = 0.014;
+        params.sigma2_min = 0.001;
+        params.sigma2_max = 0.07;
 
         params.c1_init = 0.52;
-        params.c1_min  = 0.48;
-        params.c1_max  = 0.56;   
+        params.c1_min  = 0.01;
+        params.c1_max  = 0.99;   
     
-        params.N_min = 380;
-        params.N_max = 400;
+        params.N_min = 0;
+        params.N_max = 90000;
     }
     else if (particle == "PSI2S"){
         params.interval_fit_min = 3.64;
@@ -350,8 +350,8 @@ void fit_mc_signal_roofit(TString particle) {
 
 // Particles 2G Monte Carlo: Bd, Bu, X3872, PSI2S
 void mc_double_gaussian_fit() {
-    //fit_mc_signal_roofit("Bu");
-    //fit_mc_signal_roofit("Bd");
+    fit_mc_signal_roofit("Bu");
+    fit_mc_signal_roofit("Bd");
     fit_mc_signal_roofit("X3872");
     fit_mc_signal_roofit("PSI2S");
 }
