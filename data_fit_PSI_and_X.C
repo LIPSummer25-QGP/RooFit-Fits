@@ -54,11 +54,11 @@ double getYatMass(RooPlot* frame, double mass) {
 
 
 void total_data_fit_PSI_and_X3872(){
-    double min_signal_psi2s = 3.6579;
-    double max_signal_psi2s = 3.7170;
+    double min_signal_psi2s = 3.65807;
+    double max_signal_psi2s = 3.71585;
     
-    double min_signal_x3872 = 3.8358;
-    double max_signal_x3872 = 3.9106;
+    double min_signal_x3872 = 3.83229;
+    double max_signal_x3872 = 3.91281;
 
     double xlow = 3.6;
     double xhigh = 4.0;
