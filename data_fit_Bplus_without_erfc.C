@@ -52,13 +52,15 @@ double getYatMass(RooPlot* frame, double mass) {
 
 // B+ Particle
 void total_data_fit_Bu() {
+    const int nbins_plot = 100; // Number of Bins for the Plot
+
     double min_signal = 5.17310;
     double max_signal = 5.38772;
 
     double xlow = 5.0;
     double xhigh = 6.0;
-    double bin_width = 0.01;
-    int nbins = int((xhigh - xlow) / bin_width);
+
+    double bin_width_plot = (xhigh - xlow) / nbins_plot;
 
     // Load ROOT file and TTree
     TFile *file = TFile::Open("data_unbinned_Bu_final.root");
@@ -163,14 +165,17 @@ void total_data_fit_Bu() {
     p1->Draw();
     p1->cd();
 
+
     // Draw the fit on the top frame (match styles to X3872 code)
-    RooPlot* frame = B_mass.frame();
-    dataset.plotOn(frame, MarkerStyle(20), MarkerSize(1.2), Name("data"), DataError(RooAbsData::Poisson));
+    RooPlot* frame = B_mass.frame(Range(xlow, xhigh), Bins(nbins_plot));
+    dataset.plotOn(frame, Binning(nbins_plot), MarkerStyle(20), MarkerSize(1.2), Name("data"), DataError(RooAbsData::Poisson));
+
     model.plotOn(frame, LineColor(kBlue), LineWidth(2), Name("global"));
     model.plotOn(frame, Components(expo_ext), LineColor(kRed), LineStyle(kDashed), LineWidth(2), Name("background"));
     model.plotOn(frame, Components(signal), LineColor(kGreen+2), LineStyle(kDashed), LineWidth(2), Name("signal"));
 
     frame->SetTitle("");
+    frame->GetYaxis()->SetTitle(Form("Events / ( %.4f )", bin_width_plot));
     frame->GetYaxis()->SetTitleOffset(1.5);
     frame->GetXaxis()->SetLabelSize(0); // hide x labels on top pad
     frame->Draw();
@@ -192,7 +197,7 @@ void total_data_fit_Bu() {
 
     // Calculate chi2/ndf for the fit
     int nParams = result->floatParsFinal().getSize();
-    double chi2 = frame->chiSquare(nParams);
+    double chi2 = frame->chiSquare("global", "data", nParams);
 
     // Create a legend (top-right) for the plot
     p1->cd();
@@ -252,8 +257,9 @@ void total_data_fit_Bu() {
     p2->Draw();
     p2->cd();
 
-    RooPlot* pullFrame = B_mass.frame();
-    RooHist* pullHist = frame->pullHist("data", "global"); // names must match plotOn Name(...)
+    RooPlot* pullFrame = B_mass.frame(Range(xlow, xhigh), Bins(nbins_plot));
+    RooHist* pullHist = frame->pullHist("data", "global");
+
     pullHist->SetMarkerSize(0.6);
     pullFrame->addPlotable(pullHist, "XP");
 
