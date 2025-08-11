@@ -60,11 +60,11 @@ double getYatMass(RooPlot* frame, double mass) {
 void total_data_fit_PSI_and_X3872(){
     const int nbins_plot = 100; // Number of Bins for the Plot
 
-    double min_signal_psi2s = 3.65807;
-    double max_signal_psi2s = 3.71585;
+    double min_signal_psi2s = 3.668042257;
+    double max_signal_psi2s = 3.705877743;
     
-    double min_signal_x3872 = 3.83229;
-    double max_signal_x3872 = 3.91281;
+    double min_signal_x3872 = 3.845974939;
+    double max_signal_x3872 = 3.899125061;
 
     double xlow = 3.6;
     double xhigh = 4.0;
@@ -107,18 +107,14 @@ void total_data_fit_PSI_and_X3872(){
     RooExtendPdf signal_ext_psi2s("signal_ext_psi2s", "Extended Gated Signal", signal_raw_psi2s, Nsig_psi2s);
 
 
-    // Signal model for X(3872): DOUBLE GAUSSIAN (independent shape)
+    // Signal model for X(3872): same shape as PSI(2S) (sharing σ1, σ2, c1)
     RooRealVar mean_x("mean_x", "Mean of X(3872)", 3.872, 3.86, 3.92);
-    RooRealVar sigma1_x("sigma1_x", "Core sigma X(3872)", 0.006, 0.001, 0.1);
-    RooGaussian signal_raw_x("signal_raw_x", "Single Gaussian X", B_mass, mean_x, sigma1_x);
 
-
-    // RooRealVar sigma2_x("sigma2_x", "Tail  sigma X(3872)", 0.010, 0.001, 0.1);
-    // RooRealVar c1_x("c1_x", "Fraction of Gaussian1 (X)", 0.50, 0.00, 1.00);
-    // RooGaussian gauss1_x("gauss1_x", "Narrow Gaussian X", B_mass, mean_x, sigma1_x);
-    // RooGaussian gauss2_x("gauss2_x", "Wide Gaussian X",   B_mass, mean_x, sigma2_x);
-    // RooAddPdf   signal_raw_x("signal_raw_x", "Double Gaussian X", RooArgList(gauss1_x, gauss2_x), RooArgList(c1_x));
-
+    // Reuse ψ(2S) shape parameters: sigma1_psi2s, sigma2_psi2s, c1_psi2s
+    RooGaussian gauss1_x("gauss1_x", "Narrow Gaussian X", B_mass, mean_x, sigma1_psi2s);
+    RooGaussian gauss2_x("gauss2_x", "Wide Gaussian X",   B_mass, mean_x, sigma2_psi2s);
+    RooAddPdf   signal_raw_x("signal_raw_x", "Double Gaussian X (shared shape)",
+                            RooArgList(gauss1_x, gauss2_x), RooArgList(c1_psi2s));
 
     RooRealVar Nsig_x("Nsig_x", "Yield X(3872)", 3458, 30, 400000);
     RooExtendPdf signal_ext_x("signal_ext_x", "Extended X(3872)", signal_raw_x, Nsig_x);
@@ -197,10 +193,11 @@ void total_data_fit_PSI_and_X3872(){
         file_mc_psi2s->Close();
         return;
     }
-    TString cut_mc_psi2s = Form("Bchi2cl>0.02 && BQvalueuj<0.2 && (%s) && (%s) && (%s)",
-                           ACCcuts_ppRef.Data(),
-                           SELcuts_ppRef.Data(),
-                           TRGmatching.Data());
+    TString cut_mc_psi2s = Form("Bchi2cl>0.02 && BQvalueuj<0.2 && (%s) && (%s) && (%s) && (%s)",
+                        isMCsignal.Data(),
+                        ACCcuts_ppRef.Data(),
+                        SELcuts_ppRef.Data(),
+                        TRGmatching.Data());
     int nbins_mc_psi2s = 150;
     TH1F *hist_mc_psi2s = new TH1F("hist_mc_psi2s", "MC Bmass in Signal Region; Bmass [GeV/c^{2}]; Entries", nbins_mc_psi2s, min_signal_psi2s, max_signal_psi2s);
     treemc_psi2s->Draw("Bmass >> hist_mc_psi2s", cut_mc_psi2s + Form(" && Bmass > %.4f && Bmass < %.4f", min_signal_psi2s, max_signal_psi2s), "goff");
@@ -222,10 +219,11 @@ void total_data_fit_PSI_and_X3872(){
         file_mc_x3872->Close();
         return;
     }
-    TString cut_mc_x3872 = Form("Bchi2cl>0.02 && BQvalueuj<0.2 && (%s) && (%s) && (%s)",
-                           ACCcuts_ppRef.Data(),
-                           SELcuts_ppRef.Data(),
-                           TRGmatching.Data());
+    TString cut_mc_x3872 = Form("Bchi2cl>0.02 && BQvalueuj<0.2 && (%s) && (%s) && (%s) && (%s)",
+                        isMCsignal.Data(),
+                        ACCcuts_ppRef.Data(),
+                        SELcuts_ppRef.Data(),
+                        TRGmatching.Data());
     int nbins_mc_x3872 = 150;
     TH1F *hist_mc_x3872 = new TH1F("hist_mc_x3872", "MC Bmass in Signal Region; Bmass [GeV/c^{2}]; Entries", nbins_mc_x3872, min_signal_x3872, max_signal_x3872);
     treemc_x3872->Draw("Bmass >> hist_mc_x3872", cut_mc_x3872 + Form(" && Bmass > %.4f && Bmass < %.4f", min_signal_x3872, max_signal_x3872), "goff");
@@ -371,14 +369,7 @@ void total_data_fit_PSI_and_X3872(){
     pave->AddText(Form("c_{1 #psi(2S)} = %.4f #pm %.4f", c1_psi2s.getVal(), c1_psi2s.getError()));
     pave->AddText(Form("N_{#psi(2S)} = %.1f #pm %.1f", Nsig_psi2s.getVal(), Nsig_psi2s.getError()));
     // X(3872) (double Gaussian)
-    pave->AddText(Form("Mean_{X(3872)} = %.5f #pm %.5f", mean_x.getVal(), mean_x.getError()));
-    pave->AddText(Form("#sigma_{X(3872)} = %.5f #pm %.5f", sigma1_x.getVal(), sigma1_x.getError()));
-    
-     
-    // pave->AddText(Form("#sigma_{1 X(3872)} = %.5f #pm %.5f", sigma1_x.getVal(), sigma1_x.getError()));
-    // pave->AddText(Form("#sigma_{2 X(3872)} = %.5f #pm %.5f", sigma2_x.getVal(), sigma2_x.getError()));
-    // pave->AddText(Form("c_{1 X(3872)} = %.4f #pm %.4f", c1_x.getVal(), c1_x.getError()));
-    
+    pave->AddText(Form("Mean_{X(3872)} = %.5f #pm %.5f", mean_x.getVal(), mean_x.getError()));        
     
     pave->AddText(Form("N_{X(3872)} = %.1f #pm %.1f", Nsig_x.getVal(), Nsig_x.getError()));
     // Background
@@ -420,6 +411,23 @@ void total_data_fit_PSI_and_X3872(){
     double zoom_low  = min_signal_x3872;
     double zoom_high = max_signal_x3872;
 
+    // Snap the zoom edges to the MAIN bin grid so the first/last bins are *full* bins (no truncation).
+    // This keeps the bin width equal to bin_width_plot, matching the y-axis label.
+    {
+        // nearest-bin index from the global lower edge
+        int ibin_low  = int( (zoom_low  - xlow) / bin_width_plot + 0.5 );
+        int ibin_high = int( (zoom_high - xlow) / bin_width_plot + 0.5 );
+
+        // rebuild snapped edges
+        zoom_low  = xlow + ibin_low  * bin_width_plot;
+        zoom_high = xlow + ibin_high * bin_width_plot;
+
+        // keep inside the global fit range and ensure non-empty window
+        if (zoom_low  < xlow)  zoom_low  = xlow;
+        if (zoom_high > xhigh) zoom_high = xhigh;
+        if (zoom_high <= zoom_low) zoom_high = zoom_low + bin_width_plot;
+    }
+
     // Name the zoom range so we can cut data and draw the pdf in that window only
     B_mass.setRange("xzoom", zoom_low, zoom_high);
 
@@ -428,8 +436,11 @@ void total_data_fit_PSI_and_X3872(){
     // Note: Bins() here controls curve sampling only; data binning comes from Binning(mainBins)
     RooPlot* frame_zoom = B_mass.frame(Range("xzoom"));
 
-    // DATA: use the SAME binning as the main plot, but CUT to the zoom range
-    dataset.plotOn(frame_zoom,CutRange("xzoom"), Binning(B_mass.getBinning("mainBins")), MarkerStyle(20), MarkerSize(1.2), DataError(RooAbsData::Poisson));
+    // DATA: use the SAME global binning (mainBins) but CUT to the snapped zoom range
+    dataset.plotOn(frame_zoom,
+                CutRange("xzoom"),
+                Binning(B_mass.getBinning("mainBins")),
+                MarkerStyle(20), MarkerSize(1.2), DataError(RooAbsData::Poisson));
 
     // MODEL: draw only in the zoom range, but keep normalization to the full fit range
     model.plotOn(frame_zoom,
@@ -444,7 +455,7 @@ void total_data_fit_PSI_and_X3872(){
 
     frame_zoom->Draw();
     c_zoom->SaveAs("Zoom_X3872.pdf");
-    
+
     // Clean up
     delete c;
     delete c_zoom;
