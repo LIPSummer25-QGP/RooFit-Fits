@@ -29,6 +29,8 @@ using namespace RooFit;
 #include <RooCmdArg.h>
 #include <RooCurve.h>       
 #include <RooChebychev.h>
+#include <RooBinning.h>
+
 
 
 
@@ -69,7 +71,6 @@ void total_data_fit_PSI_and_X3872(){
 
     const double bin_width_plot = (xhigh - xlow) / nbins_plot;
 
-
     // Load ROOT file and TTree
     TFile *file = TFile::Open("data_unbinned_X.root");
     if (!file || file->IsZombie()) {
@@ -86,6 +87,10 @@ void total_data_fit_PSI_and_X3872(){
     // Define the mass variable and dataset
     RooRealVar B_mass("B_mass", "B_mass", xlow, xhigh);
     B_mass.setRange("fitRange", xlow, xhigh);
+
+    RooBinning mainBins(nbins_plot, xlow, xhigh);
+    B_mass.setBinning(mainBins, "mainBins");
+
     RooDataSet dataset("dataset", "Unbinned dataset from TTree", tree, RooArgSet(B_mass));
 
 
@@ -102,10 +107,18 @@ void total_data_fit_PSI_and_X3872(){
     RooExtendPdf signal_ext_psi2s("signal_ext_psi2s", "Extended Gated Signal", signal_raw_psi2s, Nsig_psi2s);
 
 
-    // Signal model for X3872
+    // Signal model for X(3872): DOUBLE GAUSSIAN (independent shape)
     RooRealVar mean_x("mean_x", "Mean of X(3872)", 3.872, 3.86, 3.92);
-    RooRealVar sigma1_x("sigma1_x", "Sigma1 X(3872)", 0.006, 0.001, 0.1);
-    RooGaussian signal_raw_x("signal_raw_x", "Single Gaussian X(3872)", B_mass, mean_x, sigma1_x);
+    RooRealVar sigma1_x("sigma1_x", "Core sigma X(3872)", 0.006, 0.001, 0.1);
+    RooGaussian signal_raw_x("signal_raw_x", "Single Gaussian X", B_mass, mean_x, sigma1_x);
+
+
+    // RooRealVar sigma2_x("sigma2_x", "Tail  sigma X(3872)", 0.010, 0.001, 0.1);
+    // RooRealVar c1_x("c1_x", "Fraction of Gaussian1 (X)", 0.50, 0.00, 1.00);
+    // RooGaussian gauss1_x("gauss1_x", "Narrow Gaussian X", B_mass, mean_x, sigma1_x);
+    // RooGaussian gauss2_x("gauss2_x", "Wide Gaussian X",   B_mass, mean_x, sigma2_x);
+    // RooAddPdf   signal_raw_x("signal_raw_x", "Double Gaussian X", RooArgList(gauss1_x, gauss2_x), RooArgList(c1_x));
+
 
     RooRealVar Nsig_x("Nsig_x", "Yield X(3872)", 3458, 30, 400000);
     RooExtendPdf signal_ext_x("signal_ext_x", "Extended X(3872)", signal_raw_x, Nsig_x);
@@ -235,12 +248,12 @@ void total_data_fit_PSI_and_X3872(){
     // p1 is Fit ; p2 is Pulls
 
     TPad* p1 = (TPad*)c->cd(1);
-    p1->SetPad(0.0, 0.25, 1.0, 1.0);
+    p1->SetPad(0.0, 0.15, 1.0, 1.0);
     p1->SetBottomMargin(0.02);
     p1->Draw();
 
     TPad* p2 = (TPad*)c->cd(2);
-    p2->SetPad(0.0, 0.0, 1.0, 0.25);
+    p2->SetPad(0.0, 0.0, 1.0, 0.15);
     p2->SetTopMargin(0.05);
     p2->SetBottomMargin(0.25);
     p2->Draw();
@@ -248,17 +261,14 @@ void total_data_fit_PSI_and_X3872(){
     // Plotting the Fit
     p1->cd();
     RooPlot* frame = B_mass.frame(Range(xlow, xhigh), Bins(nbins_plot));
-    dataset.plotOn(frame,
-                Binning(nbins_plot),                           // plot-only granularity
-                MarkerStyle(20), MarkerSize(1.2),
-                Name("data"),
-                DataError(RooAbsData::Poisson));
+    dataset.plotOn(frame, Binning(B_mass.getBinning("mainBins")), MarkerStyle(20), MarkerSize(1.2), Name("data"), DataError(RooAbsData::Poisson));
+
 
     // Draw components
     model.plotOn(frame, Components(signal_ext_psi2s), LineColor(kGreen+2), LineStyle(kDashed), LineWidth(2), Name("psi2s"));
     model.plotOn(frame, Components(signal_ext_x),     LineColor(kCyan+2),  LineStyle(kDashed), LineWidth(2), Name("x3872"));
     model.plotOn(frame, Components(bkg_pdf),          LineColor(kRed),     LineStyle(kDashed), LineWidth(2), Name("poly4"));
-    model.plotOn(frame, Components(signal_raw_x),     LineColor(kViolet+1),LineStyle(kDotted), LineWidth(1));
+    
 
     // Draw the total model 
     model.plotOn(frame, LineColor(kBlue), LineWidth(2), Name("global"), Range("fitRange"), NormRange("fitRange"));
@@ -266,24 +276,27 @@ void total_data_fit_PSI_and_X3872(){
 
     frame->SetTitle("");
     frame->GetYaxis()->SetTitle(Form("Events / ( %.4f )", bin_width_plot));
-    frame->GetYaxis()->SetTitleOffset(1.5);
+    frame->GetYaxis()->SetTitleOffset(1.48);
     frame->GetXaxis()->SetLabelSize(0);  // hide x labels
     frame->Draw();
 
-    // -------- Draw vertical lines in the top panel ----------
-    double y_min_psi2s  = getYatMass(frame, min_signal_psi2s);
-    double y_max_psi2s  = getYatMass(frame, max_signal_psi2s);
-    double y_min_x3872  = getYatMass(frame, min_signal_x3872);
-    double y_max_x3872  = getYatMass(frame, max_signal_x3872);
 
-    TLine* line_min_psi2s = new TLine(min_signal_psi2s, 0, min_signal_psi2s, y_min_psi2s);
-    TLine* line_max_psi2s = new TLine(max_signal_psi2s, 0, max_signal_psi2s, y_max_psi2s);
-    TLine* line_min_x3872 = new TLine(min_signal_x3872, 0, min_signal_x3872, y_min_x3872);
-    TLine* line_max_x3872 = new TLine(max_signal_x3872, 0, max_signal_x3872, y_max_x3872);
+
+    // After frame->Draw();
+    p1->Update(); // make sure pad limits are updated
+
+    double y_bottom = gPad->GetUymin(); // bottom visible Y coordinate
+
+    double y_top    = gPad->GetUymax(); // top visible Y coordinate
+
+    TLine* line_min_psi2s = new TLine(min_signal_psi2s, y_bottom, min_signal_psi2s, y_top);
+    TLine* line_max_psi2s = new TLine(max_signal_psi2s, y_bottom, max_signal_psi2s, y_top);
+    TLine* line_min_x3872 = new TLine(min_signal_x3872, y_bottom, min_signal_x3872, y_top);
+    TLine* line_max_x3872 = new TLine(max_signal_x3872, y_bottom, max_signal_x3872, y_top);
 
     for (TLine* l : {line_min_psi2s, line_max_psi2s, line_min_x3872, line_max_x3872}) {
         l->SetLineColor(kBlack);
-        l->SetLineStyle(2);
+        l->SetLineStyle(3);
         l->SetLineWidth(2);
         l->Draw("same");
     }
@@ -296,9 +309,11 @@ void total_data_fit_PSI_and_X3872(){
     legend->SetLineColor(kBlack);
     legend->SetFillColor(0);
     legend->SetFillStyle(1001);
-    legend->AddEntry(frame->findObject("data"), "Unbinned Data", "lep");
-    legend->AddEntry(frame->findObject("psi2s"), "#psi(2S) Signal", "l");
-    legend->AddEntry(frame->findObject("x3872"), "X(3872) Signal", "l");
+
+    legend->AddEntry(frame->findObject("data"),   "Unbinned Data", "lep");
+    legend->AddEntry(frame->findObject("psi2s"),  "#psi(2S) Signal", "l");
+    legend->AddEntry(frame->findObject("x3872"),  "X(3872) Signal",  "l");
+    legend->AddEntry(frame->findObject("poly4"),  "Background", "l");
     legend->AddEntry(frame->findObject("global"), "Total Fit", "l");
     legend->Draw();
 
@@ -340,7 +355,7 @@ void total_data_fit_PSI_and_X3872(){
 
     // TPaveText for fit parameters
     p1->cd();  // Move to top panel
-    TPaveText* pave = new TPaveText(0.63, 0.44, 0.93, 0.97, "NDC");  // Repositioned
+    TPaveText* pave = new TPaveText(0.63, 0.38, 0.93, 0.97, "NDC");  // Repositioned
 
     pave->SetTextAlign(12);
     pave->SetTextFont(42);
@@ -355,9 +370,16 @@ void total_data_fit_PSI_and_X3872(){
     pave->AddText(Form("#sigma_{2 #psi(2S)} = %.5f #pm %.5f", sigma2_psi2s.getVal(), sigma2_psi2s.getError()));
     pave->AddText(Form("c_{1 #psi(2S)} = %.4f #pm %.4f", c1_psi2s.getVal(), c1_psi2s.getError()));
     pave->AddText(Form("N_{#psi(2S)} = %.1f #pm %.1f", Nsig_psi2s.getVal(), Nsig_psi2s.getError()));
-    // X(3872)
+    // X(3872) (double Gaussian)
     pave->AddText(Form("Mean_{X(3872)} = %.5f #pm %.5f", mean_x.getVal(), mean_x.getError()));
     pave->AddText(Form("#sigma_{X(3872)} = %.5f #pm %.5f", sigma1_x.getVal(), sigma1_x.getError()));
+    
+     
+    // pave->AddText(Form("#sigma_{1 X(3872)} = %.5f #pm %.5f", sigma1_x.getVal(), sigma1_x.getError()));
+    // pave->AddText(Form("#sigma_{2 X(3872)} = %.5f #pm %.5f", sigma2_x.getVal(), sigma2_x.getError()));
+    // pave->AddText(Form("c_{1 X(3872)} = %.4f #pm %.4f", c1_x.getVal(), c1_x.getError()));
+    
+    
     pave->AddText(Form("N_{X(3872)} = %.1f #pm %.1f", Nsig_x.getVal(), Nsig_x.getError()));
     // Background
     pave->AddText(Form("a_{0} = %.4f #pm %.4f", a0.getVal(), a0.getError()));
@@ -367,7 +389,7 @@ void total_data_fit_PSI_and_X3872(){
     pave->AddText(Form("a_{4} = %.4f #pm %.4f", a4.getVal(), a4.getError()));
     pave->AddText(Form("N_{bkg} = %.1f #pm %.1f", Nbkg.getVal(), Nbkg.getError()));
     
-    pave->AddText(Form("#chi^{2}/ndf = %.2f", chi2));
+    pave->AddText(Form("#chi^{2}/ndf = %.5f", chi2));
 
     pave->Draw();
 
@@ -392,8 +414,40 @@ void total_data_fit_PSI_and_X3872(){
     c->SaveAs(name_file);
 
     
+    // ------------------------------------------------------------------------------------------------------------
+    // Create zoomed-in plot around X(3872) without refitting
+    // ------------------------------------------------------------------------------------------------------------
+    double zoom_low  = min_signal_x3872;
+    double zoom_high = max_signal_x3872;
+
+    // Name the zoom range so we can cut data and draw the pdf in that window only
+    B_mass.setRange("xzoom", zoom_low, zoom_high);
+
+    TCanvas* c_zoom = new TCanvas("c_zoom", "Zoom around X(3872)", 800, 600);
+
+    // Note: Bins() here controls curve sampling only; data binning comes from Binning(mainBins)
+    RooPlot* frame_zoom = B_mass.frame(Range("xzoom"));
+
+    // DATA: use the SAME binning as the main plot, but CUT to the zoom range
+    dataset.plotOn(frame_zoom,CutRange("xzoom"), Binning(B_mass.getBinning("mainBins")), MarkerStyle(20), MarkerSize(1.2), DataError(RooAbsData::Poisson));
+
+    // MODEL: draw only in the zoom range, but keep normalization to the full fit range
+    model.plotOn(frame_zoom,
+                LineColor(kBlue), LineWidth(2), Name("global"),
+                Range("xzoom"), NormRange("fitRange"));
+
+    frame_zoom->SetTitle("");
+    frame_zoom->GetXaxis()->SetTitle("m_{J/#psi#pi^{+}#pi^{-}} [GeV/c^{2}]");
+    // Keep the same y-axis label style AND the same reference bin width as the main plot
+    frame_zoom->GetYaxis()->SetTitle(Form("Events / ( %.4f )", bin_width_plot));
+    frame_zoom->GetYaxis()->SetTitleOffset(1.48);
+
+    frame_zoom->Draw();
+    c_zoom->SaveAs("Zoom_X3872.pdf");
+    
     // Clean up
     delete c;
+    delete c_zoom;
 }
 
 
