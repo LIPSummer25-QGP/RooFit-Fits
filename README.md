@@ -1,20 +1,28 @@
 ## Signal Region Intervals from MC Files:
 - B+:
+- -> Mean = 5.28041
 - -> Effective Sigma = 0.02701892325
 - -> Left Sideband (using 3 sigma): 5.19935323
 - -> Right Sideband (using 3 sigma):  5.36146677
+- -> Left Sideband (using 3.5 sigma): 5.185843769
+- -> Right Sideband (using 3.5 sigma):  5.374976231
 - ...
 - B0:
+- -> Mean = 5.27959
 - -> Effective Sigma = 0.02001994742
 - -> Left Sideband (using 3 sigma): 5.219530158
 - -> Right Sideband (using 3 sigma): 5.339649842
 - ...
 - PSI(2S):
+- -> Mean = 3.68696
 - -> Effective Sigma = 0.006305914367
 - -> Left Sideband (using 3 sigma): 3.668042257
 - -> Right Sideband (using 3 sigma): 3.705877743
+- -> Left Sideband (using 3.5 sigma): 3.6648893
+- -> Right Sideband (using 3.5 sigma): 3.7090307
 - ...
 - X(3872):
+- -> Mean = 3.87255
 - -> Effective Sigma = 0.008858353809
 - -> Left Sideband (using 3 sigma): 3.845974939
 - -> Right Sideband (using 3 sigma): 3.899125061
