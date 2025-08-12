@@ -1,11 +1,11 @@
 ## Signal Region Intervals from MC Files:
 - B+:
-- -> Mean = 5.28041
-- -> Effective Sigma = 0.02701892325
-- -> Left Sideband (using 3 sigma): 5.19935323
-- -> Right Sideband (using 3 sigma):  5.36146677
-- -> Left Sideband (using 3.5 sigma): 5.185843769
-- -> Right Sideband (using 3.5 sigma):  5.374976231
+- -> Mean = 5.27952
+- -> Effective Sigma = 0.025142808
+- -> Left Sideband (using 3 sigma): 5.204091576
+- -> Right Sideband (using 3 sigma): 5.354948424
+- -> Left Sideband (using 3.5 sigma): 5.191520172
+- -> Right Sideband (using 3.5 sigma): 5.367519828
 - ...
 - B0:
 - -> Mean = 5.28078
