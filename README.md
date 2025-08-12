@@ -26,3 +26,5 @@
 - -> Effective Sigma = 0.008858353809
 - -> Left Sideband (using 3 sigma): 3.845974939
 - -> Right Sideband (using 3 sigma): 3.899125061
+- -> Left Sideband (using 2.5 sigma): 3.850404115
+- -> Right Sideband (using 2.5 sigma): 3.894695885
