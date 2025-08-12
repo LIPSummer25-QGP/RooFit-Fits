@@ -28,6 +28,7 @@ using namespace RooFit;
 #include <RooFit.h>
 #include <RooCmdArg.h>
 #include <RooCurve.h>
+#include <RooExtendPdf.h>
 
 
 // Aux: read y-value from the drawn curve at a given mass (for vertical line heights)
@@ -52,57 +53,65 @@ double getYatMass(RooPlot* frame, double mass) {
 
 // B0 Particle
 void total_data_fit_Bd() {
-    double min_signal = 5.17807;
-    double max_signal = 5.38111;
+    const int nbins_plot = 100; // Number of bins for the plotted data
 
-    double xlow = 5.0;
-    double xhigh = 6.0;
-    int nbins = 150;
-    double bin_width = (xhigh - xlow)/nbins;
+    double min_signal = 5.219530158;
+    double max_signal = 5.339649842;
+
+    double xlow = 5.1;
+    double xhigh = 5.5;
+    const double bin_width_plot = (xhigh - xlow) / nbins_plot;  // Used in y-axis label
 
     
-    // Load real data histogram
-    TFile* fData = TFile::Open("DATA_ppRef_Bmass_Bd_150bin_2.root");
-    if (!fData || fData->IsZombie()) {
+    // Load real data tree
+    TFile* file = TFile::Open("data_firstCut_Kstar_1108.root");
+    if (!file || file->IsZombie()) {
         std::cerr << "Error: Could not open real data file." << std::endl;
         return;
     }
-    TH1F* hist = (TH1F*)fData->Get("DataBkg");
-    if (!hist) {
-        std::cerr << "Error: Histogram 'DataBkg' not found in file." << std::endl;
-        return;
-    }
-
-    if (hist->GetEntries() == 0) {
-        std::cerr << "Error: Histogram 'DataBkg' is empty." << std::endl;
+    TTree* tree = (TTree*)file->Get("tree");
+    if (!tree) {
+        std::cerr << "Error: TTree not found in file." << std::endl;
         return;
     }
 
     // RooFit: variable and data
-    RooRealVar Bmass("Bmass", "Bmass", xlow, xhigh);
-    Bmass.setRange("gaussRange", min_signal, max_signal);
-    RooDataHist data("data", "dataset", RooArgList(Bmass), hist);
+    RooRealVar B_mass("B_mass", "B_mass", xlow, xhigh);
+    B_mass.setRange("gaussRange", min_signal, max_signal);
+
+    RooBinning mainBins(nbins_plot, xlow, xhigh);
+    B_mass.setBinning(mainBins, "mainBins");
+
+    RooDataSet dataset("dataset", "Unbinned dataset from TTree", tree, RooArgSet(B_mass));
 
     // Signal: Double Gaussian
     RooRealVar mean("mean", "Mean", 5.29, 5.275, 5.3);
-    RooRealVar sigma("sigma", "Sigma1", 0.009, 0.001, 0.08);
 
-    // Gaussians
-    RooGaussian signal("signal", "Single Gaussian", Bmass, mean, sigma);
+    // Double Gaussian (shared mean)
+    RooRealVar sigma1("sigma1", "Sigma1", 0.009, 0.001, 0.08);
+    RooRealVar sigma2("sigma2", "Sigma2", 0.020, 0.001, 0.10);
+    RooRealVar c1("c1", "Fraction of Gauss1", 0.7, 0.0, 1.0);
+
+    RooGaussian gaus1("gaus1", "Gaussian 1", B_mass, mean, sigma1);
+    RooGaussian gaus2("gaus2", "Gaussian 2", B_mass, mean, sigma2);
+
+    // Signal shape becomes a sum of the two Gaussians
+    RooAddPdf signal("signal", "Double Gaussian", RooArgList(gaus1, gaus2), RooArgList(c1));
+
 
     RooRealVar Nsig("Nsig", "Signal Yield", 261, 0, 300000);
     RooExtendPdf signal_ext("signal_ext", "Extended Signal", signal, Nsig);
 
     // Background: Exponential model
     RooRealVar lambda("lambda", "Lambda", -2.72, -6.0, -0.1);
-    RooExponential expo("expo", "Background", Bmass, lambda);
+    RooExponential expo("expo", "Background", B_mass, lambda);
 
     //RooRealVar c0("c0", "c0", 1.0, -1e5, 1e5);
     //RooRealVar c1("c1", "c1", 0.0, -1e5, 1e5);
     //RooRealVar c2("c2", "c2", 0.0, -1e5, 1e5);
     //RooRealVar c3("c3", "c3", 0.0, -1e5, 1e5);
     //RooRealVar c4("c4", "c4", 0.0, -1e5, 1e5);
-    //RooPolynomial poly("poly", "4th-degree polynomial background", Bmass, RooArgList(c0, c1, c2, c3, c4));
+    //RooPolynomial poly("poly", "4th-degree polynomial background", B_mass, RooArgList(c0, c1, c2, c3, c4));
 
     RooRealVar Nbkg("Nbkg", "Background Yield", 1614, 0, 1700000);
     RooExtendPdf expo_ext("expo_ext", "Extended Exponential Background", expo, Nbkg);
@@ -111,16 +120,16 @@ void total_data_fit_Bd() {
     RooAddPdf model("model", "Signal + Background", RooArgList(signal_ext, expo_ext));
 
     // Fit (Extended Maximum Likelihood Method)
-    RooFitResult* result = model.fitTo(data, Save());
+    RooFitResult* result = model.fitTo(dataset, Save());
 
     // Compute background-only integrals in signal and sideband regions
-    Bmass.setRange("signalRegion", min_signal, max_signal);
-    Bmass.setRange("lowSideband", xlow, min_signal);
-    Bmass.setRange("highSideband", max_signal, xhigh);
+    B_mass.setRange("signalRegion", min_signal, max_signal);
+    B_mass.setRange("lowSideband", xlow, min_signal);
+    B_mass.setRange("highSideband", max_signal, xhigh);
 
-    double frac_bkg_signal = expo.createIntegral(Bmass, NormSet(Bmass), Range("signalRegion"))->getVal(); // Background in Signal Region
-    double frac_bkg_low    = expo.createIntegral(Bmass, NormSet(Bmass), Range("lowSideband"))->getVal(); // Background in Left Noise Region
-    double frac_bkg_high   = expo.createIntegral(Bmass, NormSet(Bmass), Range("highSideband"))->getVal(); // Background in Right Noise Region
+    double frac_bkg_signal = expo.createIntegral(B_mass, NormSet(B_mass), Range("signalRegion"))->getVal(); // Background in Signal Region
+    double frac_bkg_low    = expo.createIntegral(B_mass, NormSet(B_mass), Range("lowSideband"))->getVal(); // Background in Left Noise Region
+    double frac_bkg_high   = expo.createIntegral(B_mass, NormSet(B_mass), Range("highSideband"))->getVal(); // Background in Right Noise Region
 
     double total_bkg_yield = Nbkg.getVal(); // Total background
 
@@ -128,7 +137,7 @@ void total_data_fit_Bd() {
     double bkg_out_signal = total_bkg_yield * (frac_bkg_low + frac_bkg_high); // Ammount of Noise in Sidebands
     double f_b = bkg_in_signal / bkg_out_signal; // Calculating F_b
 
-    double frac_sig_in_signal = signal.createIntegral(Bmass, NormSet(Bmass), Range("signalRegion"))->getVal(); // Signal in Signal Region
+    double frac_sig_in_signal = signal.createIntegral(B_mass, NormSet(B_mass), Range("signalRegion"))->getVal(); // Signal in Signal Region
     double sig_yield_in_region = Nsig.getVal() * frac_sig_in_signal; // Ammount of Signal in Signal Region
 
 
@@ -148,7 +157,8 @@ void total_data_fit_Bd() {
     }
 
     // Apply same cuts
-    TString cut_mc = Form("Balpha<0.184842 && Bnorm_svpvDistance_2D>3.9916 && Bchi2cl>0.05 && (%s) && (%s) && (%s)",
+    TString cut_mc = Form("Bchi2cl>0.003 && Bnorm_svpvDistance_2D>3.9916 && (%s) && (%s) && (%s) && (%s)",
+                        isMCsignal.Data(),
                         ACCcuts_ppRef.Data(),
                         SELcuts_ppRef.Data(),
                         TRGmatching.Data());
@@ -175,15 +185,15 @@ void total_data_fit_Bd() {
 
     // ---------- Top pad (fit) ----------
     TPad* p1 = (TPad*)c->cd(1);
-    p1->SetPad(0.0, 0.25, 1.0, 1.0);
+    p1->SetPad(0.0, 0.15, 1.0, 1.0);
     p1->SetBottomMargin(0.02);
     p1->Draw();
     p1->cd();
 
-    RooPlot* frame = Bmass.frame();
+    RooPlot* frame = B_mass.frame(Range(xlow, xhigh), Bins(nbins_plot));
 
     // Plot data + model with the same naming/styles used for pulls
-    data.plotOn(frame, MarkerStyle(20), MarkerSize(1.2), Name("data"), DataError(RooAbsData::Poisson));
+    dataset.plotOn(frame, Binning(B_mass.getBinning("mainBins")), MarkerStyle(20), MarkerSize(1.2), Name("data"), DataError(RooAbsData::Poisson));
     model.plotOn(frame, LineColor(kBlue), LineWidth(2), Name("global"));  // Total model
     model.plotOn(frame, Components(expo_ext), LineColor(kRed), LineStyle(kDashed), LineWidth(2), Name("background"));
     model.plotOn(frame, Components(signal), LineColor(kGreen + 2), LineStyle(kDashed), LineWidth(2), Name("signal"));
@@ -191,7 +201,7 @@ void total_data_fit_Bd() {
     frame->SetTitle("");
     frame->GetYaxis()->SetTitleOffset(1.5);
     frame->GetXaxis()->SetLabelSize(0);  // hide x labels on top pad
-    frame->GetYaxis()->SetTitle(Form("Events / ( %.4f )", bin_width));
+    frame->GetYaxis()->SetTitle(Form("Events / ( %.4f )", bin_width_plot));
     frame->Draw();
 
     // Vertical dashed lines at signal-region edges (heights taken from drawn curve)
@@ -209,7 +219,8 @@ void total_data_fit_Bd() {
 
     // Chi2 after plotting on frame
     int nParams = result->floatParsFinal().getSize();
-    double chi2 = frame->chiSquare(nParams);
+    double chi2 = frame->chiSquare("global", "data", nParams);
+
 
     // ---------- Legend (same place), on TOP pad ----------
     p1->cd();
@@ -221,7 +232,7 @@ void total_data_fit_Bd() {
     legend->SetFillStyle(0);
     legend->AddEntry(frame->findObject("data"), "Data (B^{0} )", "lep");
     legend->AddEntry(frame->findObject("background"), "Background Fit (Exponential)", "l");
-    legend->AddEntry(frame->findObject("signal"), "Signal Fit (Single Gaussian)", "l");
+    legend->AddEntry(frame->findObject("signal"), "Signal Fit (Double Gaussian)", "l");
     legend->AddEntry(frame->findObject("global"), "Signal + Background Fit", "l");
     legend->Draw();
 
@@ -234,7 +245,11 @@ void total_data_fit_Bd() {
     pave->SetFillColor(0);
     pave->SetBorderSize(1);
     pave->AddText(Form("Mean = %.5f #pm %.5f", mean.getVal(), mean.getError()));
-    pave->AddText(Form("#sigma = %.5f #pm %.5f", sigma.getVal(), sigma.getError()));
+
+    pave->AddText(Form("#sigma_{1} = %.5f #pm %.5f", sigma1.getVal(), sigma1.getError()));
+    pave->AddText(Form("#sigma_{2} = %.5f #pm %.5f", sigma2.getVal(), sigma2.getError()));
+    pave->AddText(Form("c1 = %.3f #pm %.3f", c1.getVal(), c1.getError()));
+
     pave->AddText(Form("N_{sig} = %.1f #pm %.1f", Nsig.getVal(), Nsig.getError()));
     pave->AddText(Form("#lambda = %.5f #pm %.5f", lambda.getVal(), lambda.getError()));
     pave->AddText(Form("N_{bkg} = %.1f #pm %.1f", Nbkg.getVal(), Nbkg.getError()));
@@ -255,13 +270,13 @@ void total_data_fit_Bd() {
 
     // ---------- Bottom pad (pulls) ----------
     TPad* p2 = (TPad*)c->cd(2);
-    p2->SetPad(0.0, 0.0, 1.0, 0.25);
+    p2->SetPad(0.0, 0.0, 1.0, 0.15);
     p2->SetTopMargin(0.05);
     p2->SetBottomMargin(0.25);
     p2->Draw();
     p2->cd();
 
-    RooPlot* pullFrame = Bmass.frame();
+    RooPlot* pullFrame = B_mass.frame();
     RooHist* pullHist = frame->pullHist("data", "global");   // names must match
     pullHist->SetMarkerSize(0.6);
     pullFrame->addPlotable(pullHist, "XP");
@@ -306,7 +321,7 @@ void total_data_fit_Bd() {
     std::cout << "Gaussian + Exponential fit complete. Output saved to 'Bd_Total_Fit_With_Pulls.pdf'" << std::endl;
 
     delete c;
-    delete hist;
+    delete tree;
     delete line_low;
     delete line_high;
 }

@@ -60,11 +60,11 @@ double getYatMass(RooPlot* frame, double mass) {
 void total_data_fit_PSI_and_X3872(){
     const int nbins_plot = 100; // Number of Bins for the Plot
 
-    double min_signal_psi2s = 3.668042257;
-    double max_signal_psi2s = 3.705877743;
+    double min_signal_psi2s = 3.6648893;
+    double max_signal_psi2s = 3.7090307;
     
-    double min_signal_x3872 = 3.845974939;
-    double max_signal_x3872 = 3.899125061;
+    double min_signal_x3872 = 3.850404115;
+    double max_signal_x3872 = 3.894695885;
 
     double xlow = 3.6;
     double xhigh = 4.0;
@@ -72,7 +72,7 @@ void total_data_fit_PSI_and_X3872(){
     const double bin_width_plot = (xhigh - xlow) / nbins_plot;
 
     // Load ROOT file and TTree
-    TFile *file = TFile::Open("data_unbinned_X.root");
+    TFile *file = TFile::Open("data_unbinned_X_FirstCut.root");
     if (!file || file->IsZombie()) {
         std::cerr << "Error: Could not open real data file." << std::endl;
         return;

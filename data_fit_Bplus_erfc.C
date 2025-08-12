@@ -8,6 +8,7 @@ using namespace RooFit;
 #include <TStyle.h>
 #include <TLegend.h>
 #include <iostream>
+#include <iomanip>
 #include "ACCSEL.h"
 
 #include <RooRealVar.h>
@@ -33,6 +34,18 @@ using namespace RooFit;
 
 // Aux: take the y-value from the drawn curve at a given mass (for vertical line heights)
 double getYatMass(RooPlot* frame, double mass) {
+    if (auto* curve = dynamic_cast<RooCurve*>(frame->findObject("global"))) {
+        int n = curve->GetN();
+        double* x = curve->GetX();
+        double* y = curve->GetY();
+        for (int j = 0; j < n - 1; ++j) {
+            if (x[j] <= mass && mass <= x[j+1]) {
+                double slope = (y[j+1] - y[j]) / (x[j+1] - x[j]);
+                return y[j] + slope * (mass - x[j]);
+            }
+        }
+    }
+    // fallback: scan any curve (your original)
     for (int i = 0; i < frame->numItems(); ++i) {
         RooCurve* curve = dynamic_cast<RooCurve*>(frame->getObject(i));
         if (!curve) continue;
@@ -51,11 +64,13 @@ double getYatMass(RooPlot* frame, double mass) {
 
 
 
-
 // B+ Particle with Error Function
 void total_data_fit_erfc_Bu() {
-    double min_signal = 5.17310;
-    double max_signal = 5.38772;
+    double min_signal = 5.185843769;
+    double max_signal = 5.374976231;
+
+    double mc_sigma1 = 0.03577;
+    double mc_sigma2 = 0.01139;
 
     double xlow = 5.0;
     double xhigh = 6.0;
@@ -63,7 +78,8 @@ void total_data_fit_erfc_Bu() {
     int nbins = int((xhigh - xlow) / bin_width);
 
     // Load ROOT file and TTree
-    TFile *file = TFile::Open("dataCutted_Bu.root");
+    TFile *file = TFile::Open("data_unbinned_Bu_first.root");
+    // data_Rsideband_Bu_afterChi_FinalCutted.root
     if (!file || file->IsZombie()) {
         std::cerr << "Error: Could not open real data file." << std::endl;
         return;
@@ -82,57 +98,74 @@ void total_data_fit_erfc_Bu() {
     B_mass.setRange("gaussRange", min_signal, max_signal);
     RooDataSet dataset("dataset", "Unbinned dataset from TTree", tree, RooArgSet(B_mass));
 
-    // Signal model: Double Gaussian
-    RooRealVar mean("mean", "Mean", 5.28, 5.277, 5.283);
-    RooRealVar sigma1("sigma1", "Sigma1", 0.0293, 0.001, 0.1);
-    RooRealVar sigma2("sigma2", "Sigma2", 0.0074, 0.001, 0.1);
-    RooRealVar c1("c1", "Fraction of Gaussian1", 0.50, 0.01, 0.99);
-    RooGaussian gauss1("gauss1", "Narrow Gaussian", B_mass, mean, sigma1);
-    RooGaussian gauss2("gauss2", "Wide Gaussian", B_mass, mean, sigma2);
-    RooAddPdf signal("signal", "Double Gaussian Model", RooArgList(gauss1, gauss2), RooArgList(c1));
-    RooRealVar Nsig("Nsig", "Signal Yield", 621, 0, 96300000);
-    RooExtendPdf signal_ext("signal_ext", "Extended Signal", signal, Nsig);
-
-    // Background model: Exponential + Gaussian (left-side component)
-    RooRealVar lambda("lambda", "Lambda", -2.27, -9.32, -0.01);
-    RooExponential expo("expo", "Exponential Background", B_mass, lambda);
-    RooRealVar Nbkg("Nbkg", "Exponential Background Yield", 670, 0, 968000000);
-    RooExtendPdf expo_ext("expo_ext", "Extended Exponential", expo, Nbkg);
-
-
-
-    // ERFC background (for left sideband)
-    RooRealVar csf("csf", "Shifting Constant", 5.05, xlow, xhigh);
-    RooRealVar csc("csc", "Scaling Constant", 0.02, 0.0008, 0.2);
-
-    RooGenericPdf erfc_bkg("erfc_bkg", "0.5*TMath::Erfc((B_mass - csf)/csc)", RooArgList(B_mass, csf, csc));
-
-    RooRealVar Nerfc("Nerfc", "ERFC Background Yield", 50, 0, 50000000);
-    RooExtendPdf erfc_ext("erfc_ext", "Extended ERFC", erfc_bkg, Nerfc);
-
-
-
-    RooAddPdf background("background", "Total Background", RooArgList(expo_ext, erfc_ext));
-
-    // Full model = signal + background
-    RooAddPdf model("model", "Signal + Background", RooArgList(signal_ext, background));
-
-    // Fit the model to data (Extended Maximum Likelihood)
-    RooFitResult* result = model.fitTo(dataset, Save(), Range(xlow, xhigh));
-
     // Define regions for integrals
     B_mass.setRange("signalRegion", min_signal, max_signal);
     B_mass.setRange("lowSideband", xlow, min_signal);
     B_mass.setRange("highSideband", max_signal, xhigh);
 
-    // Compute background-only integrals in signal and sideband regions
-    double frac_bkg_signal = expo_ext.createIntegral(B_mass, NormSet(B_mass), Range("signalRegion"))->getVal();
-    double frac_bkg_high   = expo_ext.createIntegral(B_mass, NormSet(B_mass), Range("highSideband"))->getVal();
+
+    // Signal model: Double Gaussian
+    RooRealVar mean("mean", "Mean", 5.28, 5.277, 5.283);
+
+
+    // MC-derived widths (FIXED constants — put your values here)
+    RooRealVar sigma1_mc("sigma1_mc", "MC Sigma1", mc_sigma1); 
+    sigma1_mc.setConstant(kTRUE);
+
+    RooRealVar sigma2_mc("sigma2_mc", "MC Sigma2", mc_sigma2); 
+    sigma2_mc.setConstant(kTRUE);
+
+
+    // Common positive scale (fit parameter)
+    RooRealVar Cs("Cs", "Resolution scale", 1.0, 0.2, 3.0);
+
+    // Effective widths = Cs * sigma_mc
+    RooProduct sigma1_eff("sigma1_eff", "sigma1_eff", RooArgList(sigma1_mc, Cs));
+    RooProduct sigma2_eff("sigma2_eff", "sigma2_eff", RooArgList(sigma2_mc, Cs));
+
+    // Mixture fraction and Gaussians
+    RooRealVar c1("c1", "Fraction of Gaussian1", 0.50, 0.01, 0.99);
+    RooGaussian gauss1("gauss1", "Gaussian 1", B_mass, mean, sigma1_eff);
+    RooGaussian gauss2("gauss2", "Gaussian 2", B_mass, mean, sigma2_eff);
+    RooAddPdf signal("signal", "Double Gaussian Model", RooArgList(gauss1, gauss2), RooArgList(c1));
+    RooRealVar Nsig("Nsig", "Signal Yield", 621, 0, 96300000);
+    
+
+    // Background model
+    RooRealVar lambda("lambda", "Lambda", -1.0, -6.32, -0.01);
+    RooExponential expo("expo", "Exponential Background", B_mass, lambda);
+    RooRealVar Nbkg("Nbkg", "Exponential Background Yield", 670, 0, 968000000);
+
+
+    // ERFC background (for left sideband)
+    RooRealVar csf("csf", "Shifting Constant", 5.05, xlow, max_signal);
+    RooRealVar csc("csc", "Scaling Constant", 0.02, 0.0008, 0.2);
+
+    // integral form implemented via erf: 1 - erf(x)
+    RooGenericPdf erfc_bkg("erfc_bkg", "1 - TMath::Erf((B_mass - csf)/csc)", RooArgList(B_mass, csf, csc));
+
+
+    RooRealVar Nerfc("Nerfc", "ERFC Background Yield", 50, 0, 50000000);
+    
+    RooAddPdf model("model", "Signal + Background", RooArgList(signal, expo, erfc_bkg), RooArgList(Nsig, Nbkg, Nerfc));
+
+
+    // Fit the model to data (Extended Maximum Likelihood)
+    RooFitResult* result = model.fitTo(dataset, Save(), Range(xlow, xhigh), Extended(kTRUE));
+
+
+    // Compute background-only integrals in signal and BOTH sidebands (still exponential-only, as in your original)
+    double frac_bkg_signal = expo.createIntegral(B_mass, NormSet(B_mass), Range("signalRegion")) ->getVal();
+    double frac_bkg_low    = expo.createIntegral(B_mass, NormSet(B_mass), Range("lowSideband"))  ->getVal();
+    double frac_bkg_high   = expo.createIntegral(B_mass, NormSet(B_mass), Range("highSideband")) ->getVal();
+    double frac_bkg_low_erfc = erfc_bkg.createIntegral(B_mass, NormSet(B_mass), Range("lowSideband")) -> getVal();
 
     double total_bkg_yield = Nbkg.getVal();
-    double bkg_in_signal   = total_bkg_yield * frac_bkg_signal;   // Background in signal region (R3)
-    double bkg_out_signal  = total_bkg_yield * frac_bkg_high;     // Background in upper sideband (R2 only!)
-    double f_b = bkg_in_signal / bkg_out_signal;                 // f_b calculation
+    double total_erfc_yield = Nerfc.getVal();
+    double bkg_in_signal   = total_bkg_yield * frac_bkg_signal; // R3
+    double bkg_out_signal  = total_bkg_yield * (frac_bkg_low + frac_bkg_high) + total_erfc_yield * frac_bkg_low_erfc; // R1 + R2
+    double f_b             = bkg_in_signal / bkg_out_signal;
+
 
     // Compute signal yield in signal region
     double frac_sig_in_signal = signal.createIntegral(B_mass, NormSet(B_mass), Range("signalRegion"))->getVal();
@@ -153,10 +186,11 @@ void total_data_fit_erfc_Bu() {
     }
 
     // Apply the same cuts as data
-    TString cut_mc = Form("Balpha<0.008 && Btrk1dR<1.285 && (%s) && (%s) && (%s)",
-                           ACCcuts_ppRef_Bu.Data(),
-                           SELcuts_ppRef_Bu.Data(),
-                           TRGmatching.Data());
+    TString cut_mc = Form("Btrk1dR<1.66248 && Balpha<0.150255 && Bchi2cl>0.003 && (%s) && (%s) && (%s) && (%s)",
+                        isMCsignal.Data(),
+                        ACCcuts_ppRef_Bu.Data(),
+                        SELcuts_ppRef_Bu.Data(),
+                        TRGmatching.Data());
     int nbins_mc = int((max_signal - min_signal) / 0.01);
     TH1F *hist_mc = new TH1F("hist_mc", "MC Bmass in Signal Region; Bmass [GeV/c^{2}]; Entries", nbins_mc, min_signal, max_signal);
     treemc->Draw("Bmass >> hist_mc", cut_mc + Form(" && Bmass > %.4f && Bmass < %.4f", min_signal, max_signal), "goff");
@@ -172,7 +206,7 @@ void total_data_fit_erfc_Bu() {
 
     // ---------- Top pad (fit) ----------
     TPad* p1 = (TPad*)c->cd(1);
-    p1->SetPad(0.0, 0.25, 1.0, 1.0);
+    p1->SetPad(0.0, 0.15, 1.0, 1.0);
     p1->SetBottomMargin(0.02);
     p1->Draw();
     p1->cd();
@@ -181,10 +215,10 @@ void total_data_fit_erfc_Bu() {
 
     // Plot data + model with the same naming/styles used for pulls
     dataset.plotOn(frame, MarkerStyle(20), MarkerSize(1.2), Name("data"), DataError(RooAbsData::Poisson));
-    model.plotOn(frame, LineColor(kBlue), LineWidth(2), Name("global")); // Total model component
-    model.plotOn(frame, Components(expo_ext), LineColor(kRed), LineStyle(kDashed), LineWidth(2), Name("background")); // Exponential background
-    model.plotOn(frame, Components(erfc_ext), LineColor(kMagenta), LineStyle(kDotted), LineWidth(2), Name("erfc_bkg")); // ERFC background
-    model.plotOn(frame, Components(signal), LineColor(kGreen+2), LineStyle(kDashed), LineWidth(2), Name("signal")); // Signal component
+    model.plotOn(frame, LineColor(kBlue), LineWidth(2), Name("global")); // total
+    model.plotOn(frame, Components(expo), LineColor(kRed), LineStyle(kDashed), LineWidth(2), Name("background")); // exponential part
+    model.plotOn(frame, Components(erfc_bkg), LineColor(kMagenta), LineStyle(kDotted), LineWidth(2), Name("erfc_bkg")); // erfc part
+    model.plotOn(frame, Components(signal),   LineColor(kGreen+2), LineStyle(kDashed), LineWidth(2), Name("signal")); // signal
 
     frame->SetTitle("");
     frame->GetYaxis()->SetTitleOffset(1.5);
@@ -235,8 +269,9 @@ void total_data_fit_erfc_Bu() {
     pave->SetBorderSize(1);
     // Signal: Double Gaussian
     pave->AddText(Form("Mean = %.5f #pm %.5f", mean.getVal(), mean.getError()));
-    pave->AddText(Form("#sigma_{1} = %.5f #pm %.5f", sigma1.getVal(), sigma1.getError()));
-    pave->AddText(Form("#sigma_{2} = %.5f #pm %.5f", sigma2.getVal(), sigma2.getError()));
+    pave->AddText(Form("#sigma_{1}^{MC} (fixed) = %.5f", sigma1_mc.getVal()));
+    pave->AddText(Form("#sigma_{2}^{MC} (fixed) = %.5f", sigma2_mc.getVal()));
+    pave->AddText(Form("C_{s} = %.5f #pm %.5f", Cs.getVal(), Cs.getError()));
     pave->AddText(Form("c_{1} = %.4f #pm %.4f", c1.getVal(), c1.getError()));
     pave->AddText(Form("N_{sig} = %.1f #pm %.1f", Nsig.getVal(), Nsig.getError()));
     // Exponential background
@@ -250,6 +285,7 @@ void total_data_fit_erfc_Bu() {
     pave->AddText(Form("#chi^{2}/ndf = %.2f", chi2));
     pave->Draw();
 
+    
     // ---------- f_b / f_s box (same place), on TOP pad ----------
     p1->cd();
     TPaveText* pave_fb_fs = new TPaveText(0.44, 0.77, 0.56, 0.88, "NDC");
@@ -261,10 +297,11 @@ void total_data_fit_erfc_Bu() {
     pave_fb_fs->AddText(Form("f_{b} = %.3f", f_b));
     pave_fb_fs->AddText(Form("f_{s} = %.3f", f_s));
     pave_fb_fs->Draw();
+    
 
     // ---------- Bottom pad (pulls) ----------
     TPad* p2 = (TPad*)c->cd(2);
-    p2->SetPad(0.0, 0.0, 1.0, 0.25);
+    p2->SetPad(0.0, 0.0, 1.0, 0.15);
     p2->SetTopMargin(0.05);
     p2->SetBottomMargin(0.25);
     p2->Draw();
