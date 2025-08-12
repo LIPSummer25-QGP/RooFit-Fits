@@ -13,7 +13,7 @@ using namespace RooFit;
 #include <RooRealVar.h>
 #include <RooDataSet.h>
 #include <RooDataHist.h>
-#include <RooGaussian.h>
+#include <RooGaussian.h> 
 #include <RooCBShape.h>
 #include <RooAddPdf.h>
 #include <RooPlot.h>
@@ -60,7 +60,8 @@ void fit_mc_signal_roofit(TString particle) {
     double x_max_legend = 0.0;
 
     if (particle == "Bd"){
-        path_to_file = "/lstore/cms/hlegoinha/Bmeson/MC_DATA/MC_ppRef_Bmeson/Bd_phat5_Bfinder.root";
+        path_to_file = "/lstore/cms/u25lekai/Bmeson/MC/ppRef/Bd_phat5_Bfinder.root";
+        ///lstore/cms/hlegoinha/Bmeson/MC_DATA/MC_ppRef_Bmeson/Bd_phat5_Bfinder.root
         file_name = "Bd_Gaussian_Fit.pdf";
         path_to_tree = "Bfinder/ntKstar";
         X_Axis_Title = "m_{J/#Psi K^{*}} [GeV/c^{2}]";
@@ -74,7 +75,8 @@ void fit_mc_signal_roofit(TString particle) {
         
     }
     else if (particle == "Bu"){
-        path_to_file = "/lstore/cms/hlegoinha/Bmeson/MC_DATA/MC_ppRef_Bmeson/Bu_phat5_Bfinder.root";
+        path_to_file = "/lstore/cms/u25lekai/Bmeson/MC/ppRef/Bu_phat5_Bfinder.root";
+        // /lstore/cms/hlegoinha/Bmeson/MC_DATA/MC_ppRef_Bmeson/Bu_phat5_Bfinder.root
         file_name = "Bu_Gaussian_Fit.pdf";
         path_to_tree = "Bfinder/ntKp";
         X_Axis_Title = "m_{J/#Psi K^{+}} [GeV/c^{2}]";
@@ -351,7 +353,7 @@ void fit_mc_signal_roofit(TString particle) {
 // Particles 2G Monte Carlo: Bd, Bu, X3872, PSI2S
 void mc_double_gaussian_fit() {
     fit_mc_signal_roofit("Bu");
-    fit_mc_signal_roofit("Bd");
-    fit_mc_signal_roofit("X3872");
-    fit_mc_signal_roofit("PSI2S");
+    //fit_mc_signal_roofit("Bd");
+    //fit_mc_signal_roofit("X3872");
+    //fit_mc_signal_roofit("PSI2S");
 }
