@@ -69,16 +69,19 @@ void total_data_fit_erfc_Bu() {
     double min_signal = 5.185843769;
     double max_signal = 5.374976231;
 
-    double mc_sigma1 = 0.03577;
-    double mc_sigma2 = 0.01139;
+    double mc_sigma1 = 0.03702;
+    double mc_sigma2 = 0.01609;
+    double mc_c1 = 0.3358;
 
     double xlow = 5.0;
-    double xhigh = 6.0;
-    double bin_width = 0.01;
-    int nbins = int((xhigh - xlow) / bin_width);
+    double xhigh = 5.8;
+
+    const int nbins_plot = 80; // Number of bins for the plot
+    double bin_width_plot = (xhigh - xlow) / nbins_plot;
 
     // Load ROOT file and TTree
-    TFile *file = TFile::Open("data_unbinned_Bu_first.root");
+    TFile *file = TFile::Open("data_unbinned_Bu_SecondCut.root");
+    // data_unbinned_Bu_first.root
     // data_Rsideband_Bu_afterChi_FinalCutted.root
     if (!file || file->IsZombie()) {
         std::cerr << "Error: Could not open real data file." << std::endl;
@@ -115,6 +118,9 @@ void total_data_fit_erfc_Bu() {
     RooRealVar sigma2_mc("sigma2_mc", "MC Sigma2", mc_sigma2); 
     sigma2_mc.setConstant(kTRUE);
 
+    RooRealVar c1("c1", "Fraction of Gaussian1", mc_c1);
+    c1.setConstant(kTRUE);
+
 
     // Common positive scale (fit parameter)
     RooRealVar Cs("Cs", "Resolution scale", 1.0, 0.2, 3.0);
@@ -124,7 +130,6 @@ void total_data_fit_erfc_Bu() {
     RooProduct sigma2_eff("sigma2_eff", "sigma2_eff", RooArgList(sigma2_mc, Cs));
 
     // Mixture fraction and Gaussians
-    RooRealVar c1("c1", "Fraction of Gaussian1", 0.50, 0.01, 0.99);
     RooGaussian gauss1("gauss1", "Gaussian 1", B_mass, mean, sigma1_eff);
     RooGaussian gauss2("gauss2", "Gaussian 2", B_mass, mean, sigma2_eff);
     RooAddPdf signal("signal", "Double Gaussian Model", RooArgList(gauss1, gauss2), RooArgList(c1));
@@ -172,7 +177,7 @@ void total_data_fit_erfc_Bu() {
     double sig_yield_in_region = Nsig.getVal() * frac_sig_in_signal;  // Signal in signal region (S_data)
 
     // Open and process the MC file for signal region yield
-    TFile *file_mc = TFile::Open("/lstore/cms/hlegoinha/Bmeson/MC_DATA/MC_ppRef_Bmeson/Bu_phat5_Bfinder.root");
+    TFile *file_mc = TFile::Open("/lstore/cms/u25lekai/Bmeson/MC/ppRef/Bu_phat5_Bfinder.root");
     if (!file_mc || file_mc->IsZombie()) {
         std::cerr << "Error: Could not open MC file." << std::endl;
         return;
@@ -211,10 +216,10 @@ void total_data_fit_erfc_Bu() {
     p1->Draw();
     p1->cd();
 
-    RooPlot* frame = B_mass.frame();
+    RooPlot* frame = B_mass.frame(Range(xlow, xhigh), Bins(nbins_plot));
 
     // Plot data + model with the same naming/styles used for pulls
-    dataset.plotOn(frame, MarkerStyle(20), MarkerSize(1.2), Name("data"), DataError(RooAbsData::Poisson));
+    dataset.plotOn(frame, Binning(nbins_plot), MarkerStyle(20), MarkerSize(1.2), Name("data"), DataError(RooAbsData::Poisson));
     model.plotOn(frame, LineColor(kBlue), LineWidth(2), Name("global")); // total
     model.plotOn(frame, Components(expo), LineColor(kRed), LineStyle(kDashed), LineWidth(2), Name("background")); // exponential part
     model.plotOn(frame, Components(erfc_bkg), LineColor(kMagenta), LineStyle(kDotted), LineWidth(2), Name("erfc_bkg")); // erfc part
@@ -224,7 +229,7 @@ void total_data_fit_erfc_Bu() {
     frame->GetYaxis()->SetTitleOffset(1.5);
     frame->GetXaxis()->SetLabelSize(0);  // hide x labels on top pad
     frame->GetXaxis()->SetTitle("m_{J/#Psi K^{+}} [GeV/c^{2}]");
-    frame->GetYaxis()->SetTitle("Events");
+    frame->GetYaxis()->SetTitle(Form("Events / ( %.4f )", bin_width_plot));
     frame->Draw();
 
     // Vertical dashed lines at signal-region edges (heights taken from drawn curve)
@@ -242,7 +247,7 @@ void total_data_fit_erfc_Bu() {
 
     // Calculate chi2/ndf for the fit
     int nParams = result->floatParsFinal().getSize();
-    double chi2 = frame->chiSquare(nParams);
+    double chi2 = frame->chiSquare("global", "data", nParams);
 
     // ---------- Legend (same place), on TOP pad ----------
     p1->cd();
@@ -269,10 +274,10 @@ void total_data_fit_erfc_Bu() {
     pave->SetBorderSize(1);
     // Signal: Double Gaussian
     pave->AddText(Form("Mean = %.5f #pm %.5f", mean.getVal(), mean.getError()));
-    pave->AddText(Form("#sigma_{1}^{MC} (fixed) = %.5f", sigma1_mc.getVal()));
-    pave->AddText(Form("#sigma_{2}^{MC} (fixed) = %.5f", sigma2_mc.getVal()));
+    pave->AddText(Form("#sigma_{1} (fixed) = %.5f", sigma1_mc.getVal()));
+    pave->AddText(Form("#sigma_{2} (fixed) = %.5f", sigma2_mc.getVal()));
+    pave->AddText(Form("c_{1} (fixed) = %.4f", c1.getVal()));
     pave->AddText(Form("C_{s} = %.5f #pm %.5f", Cs.getVal(), Cs.getError()));
-    pave->AddText(Form("c_{1} = %.4f #pm %.4f", c1.getVal(), c1.getError()));
     pave->AddText(Form("N_{sig} = %.1f #pm %.1f", Nsig.getVal(), Nsig.getError()));
     // Exponential background
     pave->AddText(Form("#lambda = %.4f #pm %.4f", lambda.getVal(), lambda.getError()));
@@ -307,7 +312,7 @@ void total_data_fit_erfc_Bu() {
     p2->Draw();
     p2->cd();
 
-    RooPlot* pullFrame = B_mass.frame();
+    RooPlot* pullFrame = B_mass.frame(Range(xlow, xhigh), Bins(nbins_plot));
     RooHist* pullHist = frame->pullHist("data", "global");  // names must match Name("data") and Name("global")
     pullHist->SetMarkerSize(0.6);
     pullFrame->addPlotable(pullHist, "XP");

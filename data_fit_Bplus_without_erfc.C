@@ -52,18 +52,23 @@ double getYatMass(RooPlot* frame, double mass) {
 
 // B+ Particle
 void total_data_fit_Bu() {
-    const int nbins_plot = 100; // Number of Bins for the Plot
+    const int nbins_plot = 80; // Number of Bins for the Plot
 
-    double min_signal = 5.17310;
-    double max_signal = 5.38772;
+    double min_signal = 5.185843769;
+    double max_signal = 5.374976231;
+
+    double mc_sigma1 = 0.03702;
+    double mc_sigma2 = 0.01609;
+    double mc_c1 = 0.3358;
 
     double xlow = 5.0;
-    double xhigh = 6.0;
+    double xhigh = 5.8;
 
     double bin_width_plot = (xhigh - xlow) / nbins_plot;
 
     // Load ROOT file and TTree
-    TFile *file = TFile::Open("data_unbinned_Bu_final.root");
+    TFile *file = TFile::Open("data_unbinned_Bu_SecondCut.root");
+    // data_unbinned_Bu_final.root
     // dataCutted_Bu.root
     if (!file || file->IsZombie()) {
         std::cerr << "Error: Could not open real data file." << std::endl;
@@ -85,19 +90,28 @@ void total_data_fit_Bu() {
 
     // Signal model: Double Gaussian
     RooRealVar mean("mean", "Mean", 5.28, 5.277, 5.283);
-    RooRealVar sigma1("sigma1", "Sigma1", 0.019, 0.005, 0.04);
-    RooRealVar sigma2("sigma2", "Sigma2", 0.04, 0.02, 0.06);
-    RooRealVar c1("c1", "Fraction of Gaussian1", 0.61, 0.55, 0.65);
+
+    // MC-derived widths (FIXED constants — put your values here)
+    RooRealVar sigma1("sigma1_mc", "MC Sigma1", mc_sigma1); 
+    sigma1.setConstant(kTRUE);
+
+    RooRealVar sigma2("sigma2_mc", "MC Sigma2", mc_sigma2); 
+    sigma2.setConstant(kTRUE);
+
+    RooRealVar c1("c1", "Fraction of Gaussian1", mc_c1);
+    c1.setConstant(kTRUE);
+
+
     RooGaussian gauss1("gauss1", "Narrow Gaussian", B_mass, mean, sigma1);
     RooGaussian gauss2("gauss2", "Wide Gaussian", B_mass, mean, sigma2);
     RooAddPdf signal("signal", "Double Gaussian Model", RooArgList(gauss1, gauss2), RooArgList(c1));
-    RooRealVar Nsig("Nsig", "Signal Yield", 1178, 1000, 1300);
+    RooRealVar Nsig("Nsig", "Signal Yield", 1178, 0, 990000);
     RooExtendPdf signal_ext("signal_ext", "Extended Signal", signal, Nsig);
 
     // Background model: Exponential + Gaussian (left-side component)
-    RooRealVar lambda("lambda", "Lambda", -2.48, -3.00, -2.00);
+    RooRealVar lambda("lambda", "Lambda", -2.48, -5.9, -0.01);
     RooExponential expo("expo", "Exponential Background", B_mass, lambda);
-    RooRealVar Nbkg("Nbkg", "Exponential Background Yield", 530, 300, 800);
+    RooRealVar Nbkg("Nbkg", "Exponential Background Yield", 530, 0, 990000);
     RooExtendPdf expo_ext("expo_ext", "Extended Exponential", expo, Nbkg);
 
     RooAddPdf background("background", "Total Background", RooArgList(expo_ext));
@@ -127,7 +141,7 @@ void total_data_fit_Bu() {
     double sig_yield_in_region = Nsig.getVal() * frac_sig_in_signal;  // Signal in signal region (S_data)
 
     // Open and process the MC file for signal region yield
-    TFile *file_mc = TFile::Open("/lstore/cms/hlegoinha/Bmeson/MC_DATA/MC_ppRef_Bmeson/Bu_phat5_Bfinder.root");
+    TFile *file_mc = TFile::Open("/lstore/cms/u25lekai/Bmeson/MC/ppRef/Bu_phat5_Bfinder.root");
     if (!file_mc || file_mc->IsZombie()) {
         std::cerr << "Error: Could not open MC file." << std::endl;
         return;
@@ -141,10 +155,11 @@ void total_data_fit_Bu() {
     }
 
     // Apply the same cuts as data
-    TString cut_mc = Form("Bchi2cl>0.05 && Balpha<0.015 && Btrk1dR<1.66266 && (%s) && (%s) && (%s)",
-                           ACCcuts_ppRef_Bu.Data(),
-                           SELcuts_ppRef_Bu.Data(),
-                           TRGmatching.Data());
+    TString cut_mc = Form("Bchi2cl>0.003 && Balpha<0.170266 && Btrk1dR<1.70505 && (%s) && (%s) && (%s) && (%s)",
+                        isMCsignal.Data(),
+                        ACCcuts_ppRef_Bu.Data(),
+                        SELcuts_ppRef_Bu.Data(),
+                        TRGmatching.Data());
     int nbins_mc = int((max_signal - min_signal) / 0.01);
     TH1F *hist_mc = new TH1F("hist_mc", "MC Bmass in Signal Region; Bmass [GeV/c^{2}]; Entries", nbins_mc, min_signal, max_signal);
     treemc->Draw("Bmass >> hist_mc", cut_mc + Form(" && Bmass > %.4f && Bmass < %.4f", min_signal, max_signal), "goff");
@@ -160,7 +175,7 @@ void total_data_fit_Bu() {
 
     // Top pad (fit)
     TPad* p1 = (TPad*)c->cd(1);
-    p1->SetPad(0.0, 0.25, 1.0, 1.0);
+    p1->SetPad(0.0, 0.20, 1.0, 1.0);
     p1->SetBottomMargin(0.02);
     p1->Draw();
     p1->cd();
@@ -224,9 +239,9 @@ void total_data_fit_Bu() {
 
     // Signal: Double Gaussian
     pave->AddText(Form("Mean = %.5f #pm %.5f", mean.getVal(), mean.getError()));
-    pave->AddText(Form("#sigma_{1} = %.5f #pm %.5f", sigma1.getVal(), sigma1.getError()));
-    pave->AddText(Form("#sigma_{2} = %.5f #pm %.5f", sigma2.getVal(), sigma2.getError()));
-    pave->AddText(Form("c_{1} = %.4f #pm %.4f", c1.getVal(), c1.getError()));
+    pave->AddText(Form("#sigma_{1} (fixed) = %.5f", sigma1.getVal()));
+    pave->AddText(Form("#sigma_{2} (fixed) = %.5f", sigma2.getVal()));
+    pave->AddText(Form("c_{1} (fixed) = %.4f", c1.getVal()));
     pave->AddText(Form("N_{sig} = %.1f #pm %.1f", Nsig.getVal(), Nsig.getError()));
     // Exponential background
     pave->AddText(Form("#lambda = %.4f #pm %.4f", lambda.getVal(), lambda.getError()));
@@ -251,7 +266,7 @@ void total_data_fit_Bu() {
 
     // ---------- Bottom pad (pulls) ----------
     TPad* p2 = (TPad*)c->cd(2);
-    p2->SetPad(0.0, 0.0, 1.0, 0.25);
+    p2->SetPad(0.0, 0.0, 1.0, 0.20);
     p2->SetTopMargin(0.05);
     p2->SetBottomMargin(0.25);
     p2->Draw();
