@@ -6,6 +6,8 @@
 - -> Right Sideband (using 3 sigma): 5.354948424
 - -> Left Sideband (using 3.5 sigma): 5.191520172
 - -> Right Sideband (using 3.5 sigma): 5.367519828
+- -> Left Sideband (using 4 sigma): 5.178948768
+- -> Right Sideband (using 4 sigma): 5.380091232
 - ...
 - B0:
 - -> Mean = 5.28078
