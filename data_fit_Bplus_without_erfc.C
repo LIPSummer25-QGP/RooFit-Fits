@@ -52,10 +52,10 @@ double getYatMass(RooPlot* frame, double mass) {
 
 // B+ Particle
 void total_data_fit_Bu() {
-    const int nbins_plot = 80; // Number of Bins for the Plot
+    const int nbins_plot = 100; // Number of Bins for the Plot
 
-    double min_signal = 5.185843769;
-    double max_signal = 5.374976231;
+    double min_signal = 5.178948768;
+    double max_signal = 5.380091232;
 
     double mc_sigma1 = 0.03702;
     double mc_sigma2 = 0.01609;
@@ -67,7 +67,7 @@ void total_data_fit_Bu() {
     double bin_width_plot = (xhigh - xlow) / nbins_plot;
 
     // Load ROOT file and TTree
-    TFile *file = TFile::Open("data_unbinned_Bu_SecondCut.root");
+    TFile *file = TFile::Open("data_unbinned_Bu_FinalCut.root");
     // data_unbinned_Bu_final.root
     // dataCutted_Bu.root
     if (!file || file->IsZombie()) {
@@ -89,29 +89,34 @@ void total_data_fit_Bu() {
     RooDataSet dataset("dataset", "Unbinned dataset from TTree", tree, RooArgSet(B_mass));
 
     // Signal model: Double Gaussian
-    RooRealVar mean("mean", "Mean", 5.28, 5.277, 5.283);
+    RooRealVar mean("mean", "Mean", 5.27764, 5.27, 5.29);
 
     // MC-derived widths (FIXED constants — put your values here)
-    RooRealVar sigma1("sigma1_mc", "MC Sigma1", mc_sigma1); 
-    sigma1.setConstant(kTRUE);
+    RooRealVar sigma1_mc("sigma1_mc", "MC Sigma1", mc_sigma1); 
+    sigma1_mc.setConstant(kTRUE);
 
-    RooRealVar sigma2("sigma2_mc", "MC Sigma2", mc_sigma2); 
-    sigma2.setConstant(kTRUE);
+    RooRealVar sigma2_mc("sigma2_mc", "MC Sigma2", mc_sigma2); 
+    sigma2_mc.setConstant(kTRUE);
 
     RooRealVar c1("c1", "Fraction of Gaussian1", mc_c1);
     c1.setConstant(kTRUE);
 
+    // Common positive scale (fit parameter) and effective widths
+    RooRealVar Cs("Cs", "Resolution scale", 1.0, 0.2, 3.0);
+    RooProduct sigma1_eff("sigma1_eff", "sigma1_eff", RooArgList(sigma1_mc, Cs));
+    RooProduct sigma2_eff("sigma2_eff", "sigma2_eff", RooArgList(sigma2_mc, Cs));
 
-    RooGaussian gauss1("gauss1", "Narrow Gaussian", B_mass, mean, sigma1);
-    RooGaussian gauss2("gauss2", "Wide Gaussian", B_mass, mean, sigma2);
+
+    RooGaussian gauss1("gauss1", "Gaussian 1", B_mass, mean, sigma1_eff);
+    RooGaussian gauss2("gauss2", "Gaussian 2", B_mass, mean, sigma2_eff);
     RooAddPdf signal("signal", "Double Gaussian Model", RooArgList(gauss1, gauss2), RooArgList(c1));
-    RooRealVar Nsig("Nsig", "Signal Yield", 1178, 0, 990000);
+    RooRealVar Nsig("Nsig", "Signal Yield", 3441.2, 0, 96300000);
     RooExtendPdf signal_ext("signal_ext", "Extended Signal", signal, Nsig);
 
     // Background model: Exponential + Gaussian (left-side component)
-    RooRealVar lambda("lambda", "Lambda", -2.48, -5.9, -0.01);
+    RooRealVar lambda("lambda", "Lambda", -2.1699, -6.32, -0.01);
     RooExponential expo("expo", "Exponential Background", B_mass, lambda);
-    RooRealVar Nbkg("Nbkg", "Exponential Background Yield", 530, 0, 990000);
+    RooRealVar Nbkg("Nbkg", "Exponential Background Yield", 1993.8, 0, 968000000);
     RooExtendPdf expo_ext("expo_ext", "Extended Exponential", expo, Nbkg);
 
     RooAddPdf background("background", "Total Background", RooArgList(expo_ext));
@@ -122,6 +127,7 @@ void total_data_fit_Bu() {
     // Fit the model to data (Extended Maximum Likelihood)
     RooFitResult* result = model.fitTo(dataset, Save(), Range(min_signal, xhigh));
 
+    /*
     // Define regions for integrals
     B_mass.setRange("signalRegion", min_signal, max_signal);
     B_mass.setRange("lowSideband", xlow, min_signal);
@@ -168,14 +174,14 @@ void total_data_fit_Bu() {
     file_mc->Close();
 
     double f_s = sig_yield_in_region / mc_yield_in_signal;  // f_s calculation
-
+    */
 
     TCanvas* c = new TCanvas("c", "Bmass Fit with Pulls", 800, 800);
     c->Divide(1, 2);
 
     // Top pad (fit)
     TPad* p1 = (TPad*)c->cd(1);
-    p1->SetPad(0.0, 0.20, 1.0, 1.0);
+    p1->SetPad(0.0, 0.15, 1.0, 1.0);
     p1->SetBottomMargin(0.02);
     p1->Draw();
     p1->cd();
@@ -195,6 +201,7 @@ void total_data_fit_Bu() {
     frame->GetXaxis()->SetLabelSize(0); // hide x labels on top pad
     frame->Draw();
 
+    /*
     // Vertical dashed lines at signal-region edges (line heights taken from the drawn curve)
     double y_low  = getYatMass(frame, min_signal);
     double y_high = getYatMass(frame, max_signal);
@@ -207,6 +214,7 @@ void total_data_fit_Bu() {
         l->SetLineWidth(2);
         l->Draw("same");
     }
+    */
 
 
 
@@ -216,7 +224,7 @@ void total_data_fit_Bu() {
 
     // Create a legend (top-right) for the plot
     p1->cd();
-    TLegend* legend = new TLegend(0.56, 0.66, 0.88, 0.88);
+    TLegend* legend = new TLegend(0.48, 0.60, 0.88, 0.88);
     legend->SetTextFont(42);
     legend->SetTextSize(0.025);
     legend->SetBorderSize(1);
@@ -230,7 +238,7 @@ void total_data_fit_Bu() {
 
     // TPaveText for fit parameters (bottom-right)
     p1->cd();
-    TPaveText* pave = new TPaveText(0.64, 0.30, 0.88, 0.66, "NDC");
+    TPaveText* pave = new TPaveText(0.56, 0.16, 0.88, 0.60, "NDC");
     pave->SetTextAlign(12);
     pave->SetTextFont(42);
     pave->SetTextSize(0.025);
@@ -239,9 +247,10 @@ void total_data_fit_Bu() {
 
     // Signal: Double Gaussian
     pave->AddText(Form("Mean = %.5f #pm %.5f", mean.getVal(), mean.getError()));
-    pave->AddText(Form("#sigma_{1} (fixed) = %.5f", sigma1.getVal()));
-    pave->AddText(Form("#sigma_{2} (fixed) = %.5f", sigma2.getVal()));
+    pave->AddText(Form("#sigma_{1} (fixed) = %.5f", sigma1_mc.getVal()));
+    pave->AddText(Form("#sigma_{2} (fixed) = %.5f", sigma2_mc.getVal()));
     pave->AddText(Form("c_{1} (fixed) = %.4f", c1.getVal()));
+    pave->AddText(Form("C_{s} = %.5f #pm %.5f", Cs.getVal(), Cs.getError()));
     pave->AddText(Form("N_{sig} = %.1f #pm %.1f", Nsig.getVal(), Nsig.getError()));
     // Exponential background
     pave->AddText(Form("#lambda = %.4f #pm %.4f", lambda.getVal(), lambda.getError()));
@@ -251,6 +260,7 @@ void total_data_fit_Bu() {
 
     pave->Draw();
 
+    /*
     // TPaveText for f_b and f_s (top-left or another suitable position)
     p1->cd();
     TPaveText* pave_fb_fs = new TPaveText(0.44, 0.77, 0.56, 0.88, "NDC");
@@ -262,11 +272,12 @@ void total_data_fit_Bu() {
     pave_fb_fs->AddText(Form("f_{b} = %.3f", f_b));
     pave_fb_fs->AddText(Form("f_{s} = %.3f", f_s));
     pave_fb_fs->Draw();
+    */
 
 
     // ---------- Bottom pad (pulls) ----------
     TPad* p2 = (TPad*)c->cd(2);
-    p2->SetPad(0.0, 0.0, 1.0, 0.20);
+    p2->SetPad(0.0, 0.0, 1.0, 0.15);
     p2->SetTopMargin(0.05);
     p2->SetBottomMargin(0.25);
     p2->Draw();
@@ -304,6 +315,7 @@ void total_data_fit_Bu() {
     TString name_file = "Bu_Total_Fit_with_Pulls.pdf";
     c->SaveAs(name_file);
 
+    /*
     // Console output summary
     std::cout << "Double Gaussian + Exponential fit complete. Output saved to " << name_file << std::endl;
     std::cout << std::fixed << std::setprecision(2) << std::endl;
@@ -313,10 +325,14 @@ void total_data_fit_Bu() {
     std::cout << "S_data (signal in region) = " << sig_yield_in_region << " events" << std::endl;
     std::cout << "S_MC = " << mc_yield_in_signal << " events" << std::endl;
     std::cout << "f_s = " << f_s << std::endl << std::endl;
+    */
 
     // Clean up
+    /*
     delete line_low;
     delete line_high;
+    */
+
     delete zeroLine;
     delete c;
 }

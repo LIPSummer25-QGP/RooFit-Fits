@@ -55,8 +55,8 @@ double getYatMass(RooPlot* frame, double mass) {
 void total_data_fit_Bd() {
     const int nbins_plot = 100; // Number of bins for the plotted data
 
-    double min_signal = 5.219530158;
-    double max_signal = 5.339649842;
+    double min_signal = 5.204911988;
+    double max_signal = 5.356368012;
 
     double xlow = 5.1;
     double xhigh = 5.5;

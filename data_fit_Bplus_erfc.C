@@ -66,8 +66,10 @@ double getYatMass(RooPlot* frame, double mass) {
 
 // B+ Particle with Error Function
 void total_data_fit_erfc_Bu() {
-    double min_signal = 5.185843769;
-    double max_signal = 5.374976231;
+    const int nbins_plot = 100; // Number of bins for the plot
+
+    double min_signal = 5.178948768;
+    double max_signal = 5.380091232;
 
     double mc_sigma1 = 0.03702;
     double mc_sigma2 = 0.01609;
@@ -76,13 +78,14 @@ void total_data_fit_erfc_Bu() {
     double xlow = 5.0;
     double xhigh = 5.8;
 
-    const int nbins_plot = 80; // Number of bins for the plot
     double bin_width_plot = (xhigh - xlow) / nbins_plot;
 
     // Load ROOT file and TTree
-    TFile *file = TFile::Open("data_unbinned_Bu_SecondCut.root");
+    TFile *file = TFile::Open("data_unbinned_Bu_FinalCut.root");
+    // data_unbinned_Bu_SecondCut.root
     // data_unbinned_Bu_first.root
     // data_Rsideband_Bu_afterChi_FinalCutted.root
+
     if (!file || file->IsZombie()) {
         std::cerr << "Error: Could not open real data file." << std::endl;
         return;
@@ -108,7 +111,7 @@ void total_data_fit_erfc_Bu() {
 
 
     // Signal model: Double Gaussian
-    RooRealVar mean("mean", "Mean", 5.28, 5.277, 5.283);
+    RooRealVar mean("mean", "Mean", 5.27764, 5.27, 5.29);
 
 
     // MC-derived widths (FIXED constants — put your values here)
@@ -123,7 +126,7 @@ void total_data_fit_erfc_Bu() {
 
 
     // Common positive scale (fit parameter)
-    RooRealVar Cs("Cs", "Resolution scale", 1.0, 0.2, 3.0);
+    RooRealVar Cs("Cs", "Resolution scale", 1.15888, 0.2, 3.0);
 
     // Effective widths = Cs * sigma_mc
     RooProduct sigma1_eff("sigma1_eff", "sigma1_eff", RooArgList(sigma1_mc, Cs));
@@ -133,24 +136,24 @@ void total_data_fit_erfc_Bu() {
     RooGaussian gauss1("gauss1", "Gaussian 1", B_mass, mean, sigma1_eff);
     RooGaussian gauss2("gauss2", "Gaussian 2", B_mass, mean, sigma2_eff);
     RooAddPdf signal("signal", "Double Gaussian Model", RooArgList(gauss1, gauss2), RooArgList(c1));
-    RooRealVar Nsig("Nsig", "Signal Yield", 621, 0, 96300000);
+    RooRealVar Nsig("Nsig", "Signal Yield", 3441.2, 0, 96300000);
     
 
     // Background model
-    RooRealVar lambda("lambda", "Lambda", -1.0, -6.32, -0.01);
+    RooRealVar lambda("lambda", "Lambda", -2.1699, -6.32, -0.01);
     RooExponential expo("expo", "Exponential Background", B_mass, lambda);
-    RooRealVar Nbkg("Nbkg", "Exponential Background Yield", 670, 0, 968000000);
+    RooRealVar Nbkg("Nbkg", "Exponential Background Yield", 1993.8, 0, 968000000);
 
 
     // ERFC background (for left sideband)
-    RooRealVar csf("csf", "Shifting Constant", 5.05, xlow, max_signal);
-    RooRealVar csc("csc", "Scaling Constant", 0.02, 0.0008, 0.2);
+    RooRealVar csf("csf", "Shifting Constant", 5.14159, 5.08, 5.16);
+    RooRealVar csc("csc", "Scaling Constant", 0.03528, 0.0008, 0.05);
 
     // integral form implemented via erf: 1 - erf(x)
     RooGenericPdf erfc_bkg("erfc_bkg", "1 - TMath::Erf((B_mass - csf)/csc)", RooArgList(B_mass, csf, csc));
 
 
-    RooRealVar Nerfc("Nerfc", "ERFC Background Yield", 50, 0, 50000000);
+    RooRealVar Nerfc("Nerfc", "ERFC Background Yield", 697.3, 0, 50000000);
     
     RooAddPdf model("model", "Signal + Background", RooArgList(signal, expo, erfc_bkg), RooArgList(Nsig, Nbkg, Nerfc));
 
@@ -158,7 +161,7 @@ void total_data_fit_erfc_Bu() {
     // Fit the model to data (Extended Maximum Likelihood)
     RooFitResult* result = model.fitTo(dataset, Save(), Range(xlow, xhigh), Extended(kTRUE));
 
-
+    /*
     // Compute background-only integrals in signal and BOTH sidebands (still exponential-only, as in your original)
     double frac_bkg_signal = expo.createIntegral(B_mass, NormSet(B_mass), Range("signalRegion")) ->getVal();
     double frac_bkg_low    = expo.createIntegral(B_mass, NormSet(B_mass), Range("lowSideband"))  ->getVal();
@@ -204,6 +207,7 @@ void total_data_fit_erfc_Bu() {
     file_mc->Close();
 
     double f_s = sig_yield_in_region / mc_yield_in_signal;  // f_s calculation
+    */
 
     // ---------- Canvas with two pads ----------
     TCanvas* c = new TCanvas("c", "Bmass Fit with Pulls (ERFC model)", 800, 800);
@@ -236,6 +240,7 @@ void total_data_fit_erfc_Bu() {
     double y_low  = getYatMass(frame, min_signal);
     double y_high = getYatMass(frame, max_signal);
 
+    /*
     TLine* line_low  = new TLine(min_signal, 0, min_signal, y_low);
     TLine* line_high = new TLine(max_signal, 0, max_signal, y_high);
     for (TLine* l : {line_low, line_high}) {
@@ -244,6 +249,8 @@ void total_data_fit_erfc_Bu() {
         l->SetLineWidth(2);
         l->Draw("same");
     }
+    */
+
 
     // Calculate chi2/ndf for the fit
     int nParams = result->floatParsFinal().getSize();
@@ -251,7 +258,7 @@ void total_data_fit_erfc_Bu() {
 
     // ---------- Legend (same place), on TOP pad ----------
     p1->cd();
-    TLegend* legend = new TLegend(0.56, 0.66, 0.88, 0.88);
+    TLegend* legend = new TLegend(0.48, 0.60, 0.88, 0.88);
     legend->SetTextFont(42);
     legend->SetTextSize(0.025);
     legend->SetBorderSize(1);
@@ -259,14 +266,14 @@ void total_data_fit_erfc_Bu() {
     legend->SetFillStyle(0);
     legend->AddEntry(frame->findObject("data"), "Data (B^{+}) Unbinned", "lep");
     legend->AddEntry(frame->findObject("background"), "Background Fit (Exponential)", "l");
-    legend->AddEntry(frame->findObject("erfc_bkg"), "Background Fit (ERFC, Left Sideband)", "l");
+    legend->AddEntry(frame->findObject("erfc_bkg"), "#splitline{Partially Reconstructed}{Background Fit (Erfc)}","l");
     legend->AddEntry(frame->findObject("signal"), "Signal Fit (Double Gaussian)", "l");
     legend->AddEntry(frame->findObject("global"), "Total Fit (Signal + Background)", "l");
     legend->Draw();
 
     // ---------- TPaveText (same place), on TOP pad ----------
     p1->cd();
-    TPaveText* pave = new TPaveText(0.64, 0.30, 0.88, 0.66, "NDC");
+    TPaveText* pave = new TPaveText(0.56, 0.16, 0.88, 0.60, "NDC");
     pave->SetTextAlign(12);
     pave->SetTextFont(42);
     pave->SetTextSize(0.025);
@@ -290,7 +297,8 @@ void total_data_fit_erfc_Bu() {
     pave->AddText(Form("#chi^{2}/ndf = %.2f", chi2));
     pave->Draw();
 
-    
+
+    /*
     // ---------- f_b / f_s box (same place), on TOP pad ----------
     p1->cd();
     TPaveText* pave_fb_fs = new TPaveText(0.44, 0.77, 0.56, 0.88, "NDC");
@@ -302,7 +310,8 @@ void total_data_fit_erfc_Bu() {
     pave_fb_fs->AddText(Form("f_{b} = %.3f", f_b));
     pave_fb_fs->AddText(Form("f_{s} = %.3f", f_s));
     pave_fb_fs->Draw();
-    
+    */
+
 
     // ---------- Bottom pad (pulls) ----------
     TPad* p2 = (TPad*)c->cd(2);
@@ -343,6 +352,7 @@ void total_data_fit_erfc_Bu() {
     TString name_file = "Bu_Total_Fit_Erfc_with_Pulls.pdf";
     c->SaveAs(name_file);
 
+    /*
     // Console output summary
     std::cout << "Double Gaussian + Exponential fit complete. Output saved to " << name_file << std::endl;
     std::cout << std::fixed << std::setprecision(2) << std::endl;
@@ -352,10 +362,14 @@ void total_data_fit_erfc_Bu() {
     std::cout << "S_data (signal in region) = " << sig_yield_in_region << " events" << std::endl;
     std::cout << "S_MC = " << mc_yield_in_signal << " events" << std::endl;
     std::cout << "f_s = " << f_s << std::endl << std::endl;
+    */
 
     // Clean up
+    /*
     delete line_low;
     delete line_high;
+    */
+
     delete zeroLine;
     delete c;
 }

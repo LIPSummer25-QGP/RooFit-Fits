@@ -352,8 +352,8 @@ void fit_mc_signal_roofit(TString particle) {
 
 // Particles 2G Monte Carlo: Bd, Bu, X3872, PSI2S
 void mc_double_gaussian_fit() {
-    fit_mc_signal_roofit("Bu");
-    //fit_mc_signal_roofit("Bd");
+    fit_mc_signal_roofit("Bd");
+    //fit_mc_signal_roofit("Bu");
     //fit_mc_signal_roofit("X3872");
     //fit_mc_signal_roofit("PSI2S");
 }

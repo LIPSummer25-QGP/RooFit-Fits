@@ -72,7 +72,8 @@ void total_data_fit_PSI_and_X3872(){
     const double bin_width_plot = (xhigh - xlow) / nbins_plot;
 
     // Load ROOT file and TTree
-    TFile *file = TFile::Open("data_unbinned_X_FirstCut.root");
+    TFile *file = TFile::Open("MC_ppRef_Bmass_PSI2S_X3872_newoptimized.root");
+    // data_unbinned_X_FirstCut.root
     if (!file || file->IsZombie()) {
         std::cerr << "Error: Could not open real data file." << std::endl;
         return;
@@ -193,7 +194,7 @@ void total_data_fit_PSI_and_X3872(){
         file_mc_psi2s->Close();
         return;
     }
-    TString cut_mc_psi2s = Form("Bchi2cl>0.02 && BQvalueuj<0.2 && (%s) && (%s) && (%s) && (%s)",
+    TString cut_mc_psi2s = Form("Bchi2cl>0.003 && BQvalueuj<0.14274 && (%s) && (%s) && (%s) && (%s)",
                         isMCsignal.Data(),
                         ACCcuts_ppRef.Data(),
                         SELcuts_ppRef.Data(),
