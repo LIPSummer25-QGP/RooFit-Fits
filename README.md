@@ -2,31 +2,24 @@
 - B+:
 - -> Mean = 5.27952
 - -> Effective Sigma = 0.025142808
-- -> Left Sideband (using 3 sigma): 5.204091576
-- -> Right Sideband (using 3 sigma): 5.354948424
-- -> Left Sideband (using 3.5 sigma): 5.191520172
-- -> Right Sideband (using 3.5 sigma): 5.367519828
 - -> Left Sideband (using 4 sigma): 5.178948768
 - -> Right Sideband (using 4 sigma): 5.380091232
 - ...
 - B0:
 - -> Mean = 5.28064
 - -> Effective Sigma = 0.02163657479
-- -> Left Sideband (using 3 sigma): 5.215730276
-- -> Right Sideband (using 3 sigma): 5.345549724
+- -> Left Sideband (using 3.5 sigma): 5.204911988
+- -> Right Sideband (using 3.5 sigma): 5.356368012
+
 - ...
 - PSI(2S):
 - -> Mean = 3.68696
 - -> Effective Sigma = 0.006305914367
-- -> Left Sideband (using 3 sigma): 3.668042257
-- -> Right Sideband (using 3 sigma): 3.705877743
 - -> Left Sideband (using 3.5 sigma): 3.6648893
 - -> Right Sideband (using 3.5 sigma): 3.7090307
 - ...
 - X(3872):
 - -> Mean = 3.87255
 - -> Effective Sigma = 0.008858353809
-- -> Left Sideband (using 3 sigma): 3.845974939
-- -> Right Sideband (using 3 sigma): 3.899125061
 - -> Left Sideband (using 2.5 sigma): 3.850404115
 - -> Right Sideband (using 2.5 sigma): 3.894695885
