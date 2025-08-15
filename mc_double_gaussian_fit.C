@@ -30,6 +30,7 @@ using namespace RooFit;
 
 
 
+
 struct FitParams {
     double interval_fit_min, interval_fit_max;
     double mean_init, mean_min, mean_max;
@@ -350,10 +351,212 @@ void fit_mc_signal_roofit(TString particle) {
 }
 
 
+
+
+
+
+
+
+
+
+void fit_mc_signal_Bs() {
+    TTree*  tree          = nullptr;
+    TString path_to_file  = "/lstore/cms/u25lekai/Bmeson/MC/ppRef/Bs_phat5_Bfinder.root";
+    TString file_name     = "Bs_TripleGaussian_Fit.pdf";
+    TString path_to_tree  = "Bfinder/ntphi";
+    TString X_Axis_Title  = "m_{J/#Psi #Phi} [GeV/c^{2}]";
+    TString legend_name   = "B_{s}";
+
+    // Histogram binning
+    double xlow = 5.0;
+    double xhigh = 6.0;
+    double interval_of_bins = 0.0075;
+    int nbins = int((xhigh - xlow) / interval_of_bins);
+
+    // Legend position
+    double x_min_legend = 0.50;
+    double x_max_legend = 0.88;
+
+    // Open file and tree
+    TFile* file = TFile::Open(path_to_file);
+    if (!file || file->IsZombie()) {
+        std::cerr << "Ficheiro de MC não encontrado!" << std::endl;
+        return;
+    }
+    file->GetObject(path_to_tree, tree);
+    if (!tree) {
+        std::cerr << "Tree não encontrada!" << std::endl;
+        file->Close();
+        delete file;
+        return;
+    }
+
+    TString cut = Form("(%s) && (%s) && (%s) && (%s)",
+        isMCsignal.Data(),
+        ACCcuts_ppRef.Data(),
+        SELcuts_ppRef.Data(),
+        TRGmatching.Data()
+    );
+
+    // Fill histogram
+    TH1F* h = new TH1F("h_roofit", "MC Signal;Bmass [GeV/c^{2}];Entries", nbins, xlow, xhigh);
+    tree->Draw("Bmass >> h_roofit", cut, "goff");
+
+    if (h->GetEntries() == 0) {
+        std::cerr << "Histograma vazio após os cortes!" << std::endl;
+        delete h;
+        file->Close();
+        delete file;
+        return;
+    }
+
+    double interval_fit_min = 5.26;
+    double interval_fit_max = 5.46;
+
+    double mean_init = 5.36;
+    double mean_min  = 5.32;
+    double mean_max  = 5.40;
+
+    double sigma1_init = 0.036; 
+    double sigma1_min = 0.001; 
+    double sigma1_max = 0.09;
+
+    double sigma2_init = 0.011; 
+    double sigma2_min = 0.001; 
+    double sigma2_max = 0.07;
+
+    double sigma3_init = 0.020; 
+    double sigma3_min = 0.001; 
+    double sigma3_max = 0.05;
+
+    double c1_init = 0.52; 
+    double c1_min = 0.00; 
+    double c1_max = 1.00;
+    
+    double c2_init = 0.25; 
+    double c2_min = 0.00; 
+    double c2_max = 1.00; 
+
+    double N_min = 0;
+    double N_max = 900000;
+
+    // === RooFit objects ===
+    RooRealVar Bmass("Bmass", "Bmass", xlow, xhigh);
+    Bmass.setRange("fitRange", interval_fit_min, interval_fit_max);
+
+    RooDataHist data("data", "Histograma RooFit", RooArgList(Bmass), h);
+
+    RooRealVar mean  ("mean",  "mean",  mean_init,  mean_min,  mean_max);
+    RooRealVar sigma1("sigma1","sigma1",sigma1_init,sigma1_min,sigma1_max);
+    RooRealVar sigma2("sigma2","sigma2",sigma2_init,sigma2_min,sigma2_max);
+    RooRealVar sigma3("sigma3","sigma3",sigma3_init,sigma3_min,sigma3_max);
+
+    // Fractions (the third fraction is 1 - c1 - c2)
+    RooRealVar c1("c1", "Fraction of G1", c1_init, c1_min, c1_max);
+    RooRealVar c2("c2", "Fraction of G2", c2_init, c2_min, c2_max);
+
+    RooRealVar N("N", "Total yield", h->GetEntries(), N_min, N_max);
+
+    // Three Gaussians with shared mean
+    RooGaussian gauss1("gauss1", "Component 1", Bmass, mean, sigma1);
+    RooGaussian gauss2("gauss2", "Component 2",    Bmass, mean, sigma2);
+    RooGaussian gauss3("gauss3", "Component 3",   Bmass, mean, sigma3);
+
+    // Triple Gaussian as normalized shape:
+    // RooAddPdf with 3 PDFs and 2 fractions => third fraction is implicit (1 - c1 - c2)
+    RooAddPdf shape("shape", "Normalized Triple Gaussian",
+                    RooArgList(gauss1, gauss2, gauss3),
+                    RooArgList(c1, c2));
+
+    // Extended model with total yield
+    RooExtendPdf model("model", "Extended model", shape, N);
+
+    // Fit in the defined range
+    RooFitResult* result = model.fitTo(data, Range("fitRange"), Save(), Extended(kTRUE));
+
+    // === Plot ===
+    TCanvas* c = new TCanvas("c_roofit", "RooFit", 800, 600);
+    RooPlot* frame = Bmass.frame();
+    frame->SetTitle(" ");
+    frame->GetXaxis()->SetTitle(X_Axis_Title);
+    frame->GetYaxis()->SetTitle(Form("Events / ( %.4f )", interval_of_bins));
+    frame->GetYaxis()->SetTitleOffset(1.35);
+
+    data.plotOn  (frame, MarkerStyle(20), MarkerSize(1.0), Name("h_roofit"));
+    model.plotOn (frame, LineColor(kBlue), Name("model"), Range("fitRange"), NormRange("fitRange"));
+    shape.plotOn (frame, Components(gauss1), LineStyle(kDashed), LineColor(kGreen+2), Range("fitRange"), NormRange("fitRange"));
+    shape.plotOn (frame, Components(gauss2), LineStyle(kDashed), LineColor(kRed),     Range("fitRange"), NormRange("fitRange"));
+    shape.plotOn (frame, Components(gauss3), LineStyle(kDashed), LineColor(kMagenta+1), Range("fitRange"), NormRange("fitRange"));
+
+    frame->Draw();
+
+    int nFitParams = result->floatParsFinal().getSize();
+    double chi2 = frame->chiSquare("model", "h_roofit", nFitParams);
+
+    // Legend
+    auto legend_signal = new TLegend(x_min_legend, 0.76, x_max_legend, 0.88);
+    legend_signal->SetTextSize(0.03);
+    legend_signal->SetTextFont(42);
+    legend_signal->AddEntry((TObject*)frame->findObject("h_roofit"), legend_name + " - MC Signal", "p");
+    legend_signal->AddEntry((TObject*)frame->findObject("model"), "Model: Triple Gaussian", "l");
+    legend_signal->AddEntry((TObject*)0, Form("No. of MC Candidates = %.0f", h->GetEntries()), "");
+    legend_signal->Draw();
+
+    // Fit parameter box
+    TPaveText* pave = new TPaveText(x_min_legend, 0.44, x_max_legend, 0.75, "NDC");
+    pave->SetTextAlign(12);
+    pave->SetTextFont(42);
+    pave->SetTextSize(0.03);
+    pave->SetFillColor(0);
+    pave->SetBorderSize(1);
+    pave->AddText(Form("Mean = %.5f #pm %.5f", mean.getVal(), mean.getError()));
+    pave->AddText(Form("#sigma_{1} = %.5f #pm %.5f", sigma1.getVal(), sigma1.getError()));
+    pave->AddText(Form("#sigma_{2} = %.5f #pm %.5f", sigma2.getVal(), sigma2.getError()));
+    pave->AddText(Form("#sigma_{3} = %.5f #pm %.5f", sigma3.getVal(), sigma3.getError()));
+    pave->AddText(Form("c_{1} = %.4f #pm %.4f", c1.getVal(), c1.getError()));
+    pave->AddText(Form("c_{2} = %.4f #pm %.4f", c2.getVal(), c2.getError()));
+    pave->AddText(Form("N = %.2f #pm %.2f", N.getVal(), N.getError()));
+    pave->AddText(Form("#chi^{2}/ndf = %.2f", chi2));
+    pave->Draw();
+
+    // Terminal output
+    std::cout << " ➤ Mean = " << mean.getVal() << std::endl;
+    std::cout << " ➤ Sigma1 = " << sigma1.getVal() << std::endl;
+    std::cout << " ➤ Sigma2 = " << sigma2.getVal() << std::endl;
+    std::cout << " ➤ Sigma3 = " << sigma3.getVal() << std::endl;
+    std::cout << " ➤ c1 (G1 fraction) = " << c1.getVal() << std::endl;
+    std::cout << " ➤ c2 (G2 fraction) = " << c2.getVal() << std::endl;
+    std::cout << " ➤ N = " << N.getVal() << std::endl;
+    std::cout << " ➤ Total entries = " << h->GetEntries() << std::endl;
+
+    // Save plot
+    c->SaveAs(file_name);
+
+    // Cleanup
+    delete h;
+    delete c;
+    file->Close();
+    delete file;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Particles 2G Monte Carlo: Bd, Bu, X3872, PSI2S
 void mc_double_gaussian_fit() {
-    fit_mc_signal_roofit("Bd");
+    //fit_mc_signal_roofit("Bd");
     //fit_mc_signal_roofit("Bu");
     //fit_mc_signal_roofit("X3872");
     //fit_mc_signal_roofit("PSI2S");
+    fit_mc_signal_Bs();
 }
