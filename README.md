@@ -10,7 +10,12 @@
 - -> Effective Sigma = 0.02163657479
 - -> Left Sideband (using 3.5 sigma): 5.204911988
 - -> Right Sideband (using 3.5 sigma): 5.356368012
-
+- ...
+- Bs:
+- -> Mean = 5.36743
+- -> Effective Sigma = 0.01754324685
+- -> Left Sideband (using 3 sigma): 5.314800259
+- -> Right Sideband (using 3 sigma): 5.420059741
 - ...
 - PSI(2S):
 - -> Mean = 3.68696
