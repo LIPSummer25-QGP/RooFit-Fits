@@ -35,7 +35,7 @@ using namespace RooFit;
 #include <RooCurve.h>
 
 
-
+/*
 void Bplus_nominal() {
     const int nbins_plot = 100; // Number of bins for the plot
 
@@ -250,7 +250,7 @@ void Bplus_nominal() {
     delete zeroLine;
     delete c;
 }
-
+*/
 
 
 
@@ -419,7 +419,7 @@ void Bplus_LinearBkg() {
     pave->AddText(Form("N_{sig} = %.1f #pm %.1f", Nsig.getVal(), Nsig.getError()));
     // Linear background
     pave->AddText(Form("p_{1} (slope) = %.4f #pm %.4f", p_lin.getVal(), p_lin.getError()));
-    pave->AddText(Form("N_{bkg}^{lin} = %.1f #pm %.1f", Nbkg.getVal(), Nbkg.getError()));
+    pave->AddText(Form("N_{bkg} = %.1f #pm %.1f", Nbkg.getVal(), Nbkg.getError()));
     // ERFC background
     pave->AddText(Form("c_{sf} = %.5f #pm %.5f", csf.getVal(), csf.getError()));
     pave->AddText(Form("c_{sc} = %.5f #pm %.5f", csc.getVal(), csc.getError()));
@@ -616,7 +616,7 @@ void Bplus_2degreepoly() {
     legend->SetFillStyle(1001);   // Solid fill
     legend->SetFillColor(kWhite); // White background (you can pick another color)
     legend->AddEntry(frame->findObject("data"), "Data (B^{+}) Unbinned", "lep");
-    legend->AddEntry(frame->findObject("bern_bkg"), "Background Fit (Bernstein-2)", "l");
+    legend->AddEntry(frame->findObject("bern_bkg"), "Background Fit (2nd Degree Poly)", "l");
     legend->AddEntry(frame->findObject("erfc_bkg"), "#splitline{Partially Reconstructed}{Background Fit (Erfc)}","l");
     legend->AddEntry(frame->findObject("signal"), "Signal Fit (Double Gaussian)", "l");
     legend->AddEntry(frame->findObject("global"), "Total Fit (Signal + Background)", "l");
@@ -641,7 +641,7 @@ void Bplus_2degreepoly() {
     pave->AddText(Form("c_{0} = %.4f #pm %.4f", c0.getVal(), c0.getError()));
     pave->AddText(Form("c_{1} = %.4f #pm %.4f", c1b.getVal(), c1b.getError()));
     pave->AddText(Form("c_{2} = %.4f #pm %.4f", c2.getVal(), c2.getError()));
-    pave->AddText(Form("N_{bkg}^{bern} = %.1f #pm %.1f", Nbkg.getVal(), Nbkg.getError()));
+    pave->AddText(Form("N_{bkg} = %.1f #pm %.1f", Nbkg.getVal(), Nbkg.getError()));
     // ERFC background
     pave->AddText(Form("c_{sf} = %.5f #pm %.5f", csf.getVal(), csf.getError()));
     pave->AddText(Form("c_{sc} = %.5f #pm %.5f", csc.getVal(), csc.getError()));
@@ -922,7 +922,7 @@ void Bplus_fixedmean() {
 
 
 
-/*
+
 void Bplus_triplegaussian() {
     const int nbins_plot = 100; // Number of bins for the plot
 
@@ -968,46 +968,56 @@ void Bplus_triplegaussian() {
     B_mass.setRange("highSideband", max_signal, xhigh);
 
     // Signal model: Triple Gaussian (all free, no MC scaling)
-    RooRealVar mean("mean", "Mean", 5.27764, 5.27, 5.29);
+    RooRealVar mean("mean", "Mean", 5.27843, 5.27, 5.29);
 
     // Free widths (positive)
-    RooRealVar sigma1("sigma1", "Sigma1", 0.037, 0.003, 0.150);
-    RooRealVar sigma2("sigma2", "Sigma2", 0.016, 0.003, 0.150);
-    RooRealVar sigma3("sigma3", "Sigma3", 0.060, 0.003, 0.300);
+    RooRealVar sigma1("sigma1", "Sigma1", 0.02304, 0.003, 0.045);
+    RooRealVar sigma2("sigma2", "Sigma2", 0.01434, 0.003, 0.035);
+    RooRealVar sigma3("sigma3", "Sigma3", 0.008, 0.003, 0.035);
 
     // Components
     RooGaussian gauss1("gauss1", "Gaussian 1", B_mass, mean, sigma1);
     RooGaussian gauss2("gauss2", "Gaussian 2", B_mass, mean, sigma2);
     RooGaussian gauss3("gauss3", "Gaussian 3", B_mass, mean, sigma3);
 
-    // Fractions (free) — third is 1 - f1 - f2
-    RooRealVar f1("f1", "Fraction of Gaussian1", 0.33, 0.0, 1.0);
-    RooRealVar f2("f2", "Fraction of Gaussian2", 0.33, 0.0, 1.0);
-    RooAddPdf signal("signal", "Triple Gaussian Model", RooArgList(gauss1, gauss2, gauss3), RooArgList(f1, f2), kTRUE);
-    RooRealVar Nsig("Nsig", "Signal Yield", 3441.2, 0, 96300000);
+    RooRealVar r1("r1","r1", 2.0, 0.1, 10.0);
+    RooRealVar r2("r2","r2", 2.0, 0.1, 10.0);
+    RooFormulaVar f1("f1","@0/(1+@0+@1)",RooArgList(r1,r2));
+    RooFormulaVar f2("f2","@1/(1+@0+@1)",RooArgList(r1,r2));
+    RooAddPdf signal("signal", "Triple Gaussian Model", RooArgList(gauss1, gauss2, gauss3), RooArgList(f1, f2));
+
+
+    RooRealVar Nsig("Nsig", "Signal Yield", 41000, 100, 100000);
 
 
     // Background model
-    RooRealVar lambda("lambda", "Lambda", -2.1699, -6.32, -0.01);
+    RooRealVar lambda("lambda", "Lambda", -0.19, -4.32, -0.01);
     RooExponential expo("expo", "Exponential Background", B_mass, lambda);
-    RooRealVar Nbkg("Nbkg", "Exponential Background Yield", 1993.8, 0, 968000000);
+    RooRealVar Nbkg("Nbkg", "Exponential Background Yield", 211000, 1000, 1000000);
 
 
     // ERFC background (for left sideband)
-    RooRealVar csf("csf", "Shifting Constant", 5.14159, 5.08, 5.16);
-    RooRealVar csc("csc", "Scaling Constant", 0.03528, 0.0008, 0.05);
+    RooRealVar csf("csf", "Shifting Constant", 5.1365, 5.08, 5.16);
+    RooRealVar csc("csc", "Scaling Constant", 0.049, 0.0008, 0.05);
 
     // integral form implemented via erf: 1 - erf(x)
     RooGenericPdf erfc_bkg("erfc_bkg", "1 - TMath::Erf((B_mass - csf)/csc)", RooArgList(B_mass, csf, csc));
 
 
-    RooRealVar Nerfc("Nerfc", "ERFC Background Yield", 697.3, 0, 50000000);
+    RooRealVar Nerfc("Nerfc", "ERFC Background Yield", 9500, 100, 15000);
     
     RooAddPdf model("model", "Signal + Background", RooArgList(signal, expo, erfc_bkg), RooArgList(Nsig, Nbkg, Nerfc));
 
 
     // Fit the model to data (Extended Maximum Likelihood)
     RooFitResult* result = model.fitTo(dataset, Save(), Range(xlow, xhigh), Extended(kTRUE));
+
+    // Fractions and their propagated uncertainties
+    double f1_val = f1.getVal();
+    double f1_err = f1.getPropagatedError(*result);
+    double f2_val = f2.getVal();
+    double f2_err = f2.getPropagatedError(*result);
+
 
     // ---------- Canvas with two pads ----------
     TCanvas* c = new TCanvas("c", "Bmass Fit with Pulls (ERFC model)", 800, 800);
@@ -1070,8 +1080,8 @@ void Bplus_triplegaussian() {
     pave->AddText(Form("#sigma_{1} = %.5f #pm %.5f", sigma1.getVal(), sigma1.getError()));
     pave->AddText(Form("#sigma_{2} = %.5f #pm %.5f", sigma2.getVal(), sigma2.getError()));
     pave->AddText(Form("#sigma_{3} = %.5f #pm %.5f", sigma3.getVal(), sigma3.getError()));
-    pave->AddText(Form("f_{1} = %.4f #pm %.4f", f1.getVal(), f1.getError()));
-    pave->AddText(Form("f_{2} = %.4f #pm %.4f", f2.getVal(), f2.getError()));
+    pave->AddText(Form("f_{1} = %.4f #pm %.4f", f1_val, f1_err));
+    pave->AddText(Form("f_{2} = %.4f #pm %.4f", f2_val, f2_err));
     pave->AddText(Form("N_{sig} = %.1f #pm %.1f", Nsig.getVal(), Nsig.getError()));
     // Exponential background
     pave->AddText(Form("#lambda = %.4f #pm %.4f", lambda.getVal(), lambda.getError()));
@@ -1128,7 +1138,7 @@ void Bplus_triplegaussian() {
     delete zeroLine;
     delete c;
 }
-*/
+
 
 
 
@@ -1191,8 +1201,7 @@ void Bplus_crystalball() {
     RooRealVar sigma2_mc("sigma2_mc", "MC Sigma2", mc_sigma2); 
     sigma2_mc.setConstant(kTRUE);
 
-    RooRealVar c1("c1", "Fraction of Gaussian1", mc_c1);
-    c1.setConstant(kTRUE);
+    RooRealVar c1("c1", "Fraction of Gaussian1", 0.75, 0.50, 0.98);
 
 
     // Common positive scale (fit parameter)
@@ -1204,8 +1213,8 @@ void Bplus_crystalball() {
     
 
     // Crystal Ball tail parameters (left tail typical for mass peaks)
-    RooRealVar alpha_cb("alpha_cb", "CB alpha", -1.5, -5.0, -0.2);
-    RooRealVar n_cb("n_cb", "CB n", 5.0, 1.1, 50.0);
+    RooRealVar alpha_cb("alpha_cb", "CB alpha", -2.0, -5.0, -0.8);
+    RooRealVar n_cb("n_cb", "CB n", 5.0, 1.975, 50.0);
 
 
     // Mixture fraction and Gaussians
@@ -1223,7 +1232,7 @@ void Bplus_crystalball() {
 
     // ERFC background (for left sideband)
     RooRealVar csf("csf", "Shifting Constant", 5.14159, 5.08, 5.16);
-    RooRealVar csc("csc", "Scaling Constant", 0.03528, 0.0008, 0.05);
+    RooRealVar csc("csc", "Scaling Constant", 0.03528, 0.0008, 0.1);
 
     // integral form implemented via erf: 1 - erf(x)
     RooGenericPdf erfc_bkg("erfc_bkg", "1 - TMath::Erf((B_mass - csf)/csc)", RooArgList(B_mass, csf, csc));
@@ -1299,7 +1308,7 @@ void Bplus_crystalball() {
     pave->AddText(Form("#sigma_{CB} (fixed) = %.5f", sigma2_mc.getVal()));
     pave->AddText(Form("#alpha_{CB} = %.3f #pm %.3f", alpha_cb.getVal(), alpha_cb.getError()));
     pave->AddText(Form("n_{CB} = %.3f #pm %.3f", n_cb.getVal(), n_cb.getError()));
-    pave->AddText(Form("c_{1} (fixed) = %.4f", c1.getVal()));
+    pave->AddText(Form("c_{1} = %.4f #pm %.4f", c1.getVal(), c1.getError()));
     pave->AddText(Form("C_{s} = %.5f #pm %.5f", Cs.getVal(), Cs.getError()));
     pave->AddText(Form("N_{sig} = %.1f #pm %.1f", Nsig.getVal(), Nsig.getError()));
     // Exponential background
@@ -1551,11 +1560,11 @@ void Bplus_Without_Left_Sideband() {
 
 
 void Bplus_variations() {
-    Bplus_nominal();
+    //Bplus_nominal();
     //Bplus_LinearBkg();
     //Bplus_2degreepoly();
     //Bplus_fixedmean();
-    //Bplus_triplegaussian();
+    Bplus_triplegaussian();
     //Bplus_crystalball();
     //Bplus_Without_Left_Sideband();
 }

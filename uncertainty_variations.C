@@ -9,10 +9,10 @@ void plot_Bplus_uncertainties() {
     // === Editable values (replace with your numbers) ===
     double N_nominal = 40781.9;
     double N_seconddegree = 40432.7;
-    double N_crystalball = 42262.2;
+    double N_crystalball = 41126.8;
     double N_fixedmean = 40693.2;
     double N_linearbkg = 40847.0;
-    double N_triplegaussian = 41554.2;
+    double N_triplegaussian = 41288.3;
     double N_massrange = 40476.1;
 
 
@@ -32,7 +32,7 @@ void plot_Bplus_uncertainties() {
 
 
     // y-range top (adjust if needed)
-    const double yMax = 4;
+    const double yMax = 1.5;
 
     // === Canvas & style ===
     gStyle->SetOptStat(0);
