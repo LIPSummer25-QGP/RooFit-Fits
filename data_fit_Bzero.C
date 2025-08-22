@@ -108,6 +108,8 @@ void total_data_fit_Bd() {
     RooRealVar mean("mean", "Mean", mc_mean);
     mean.setConstant(true);
 
+    // Resolution Scale
+    RooRealVar Cs("Cs", "Resolution scale", 1.0, 0.3, 3.0);
 
     // --- Right Tag (RT): two standard Gaussians, fixed sigmas and fixed fraction ---
     RooRealVar sigma1_rt("sigma1_rt", "RT sigma1", mc_sigma1_rt);          
@@ -119,8 +121,13 @@ void total_data_fit_Bd() {
     RooRealVar c1_rt("c1_rt", "RT fraction of G1", mc_c1_rt);      
     c1_rt.setConstant(true);
 
-    RooGaussian rt_g1("rt_g1", "RT Gaussian 1", B_mass, mean, sigma1_rt);
-    RooGaussian rt_g2("rt_g2", "RT Gaussian 2", B_mass, mean, sigma2_rt);
+
+    RooProduct sigma1_rt_eff("sigma1_rt_eff", "sigma1_rt_eff", RooArgList(sigma1_rt, Cs));
+    RooProduct sigma2_rt_eff("sigma2_rt_eff", "sigma2_rt_eff", RooArgList(sigma2_rt, Cs));
+
+
+    RooGaussian rt_g1("rt_g1", "RT Gaussian 1", B_mass, mean, sigma1_rt_eff);
+    RooGaussian rt_g2("rt_g2", "RT Gaussian 2", B_mass, mean, sigma2_rt_eff);
     RooAddPdf   rt_pdf("rt_pdf", "RT: two Gaussians", RooArgList(rt_g1, rt_g2), RooArgList(c1_rt));
 
 
@@ -138,8 +145,12 @@ void total_data_fit_Bd() {
     c1_wt.setConstant(true);
 
 
-    RooGaussian wt_g1("wt_g1", "WT Gaussian 1", B_mass, mean, sigma1_wt);
-    RooBifurGauss wt_g2("wt_g2", "WT asymmetric Gaussian", B_mass, mean, sigma2L_wt, sigma2R_wt);
+    RooProduct sigma1_wt_eff("sigma1_wt_eff", "sigma1_wt_eff", RooArgList(sigma1_wt, Cs));
+    RooProduct sigma2L_wt_eff("sigma2L_wt_eff", "sigma2L_wt_eff", RooArgList(sigma2L_wt, Cs));
+    RooProduct sigma2R_wt_eff("sigma2R_wt_eff", "sigma2R_wt_eff", RooArgList(sigma2R_wt, Cs));
+
+    RooGaussian wt_g1("wt_g1", "WT Gaussian 1", B_mass, mean, sigma1_wt_eff);
+    RooBifurGauss wt_g2("wt_g2", "WT asymmetric Gaussian", B_mass, mean, sigma2L_wt_eff, sigma2R_wt_eff);
     RooAddPdf wt_pdf("wt_pdf", "WT: Gauss + bifurGauss", RooArgList(wt_g1, wt_g2), RooArgList(c1_wt));
 
 
@@ -310,7 +321,7 @@ void total_data_fit_Bd() {
 
     // ---------- TPaveText (same place), on TOP pad ----------
     p1->cd();
-    TPaveText* pave = new TPaveText(0.63, 0.22, 0.88, 0.77, "NDC");
+    TPaveText* pave = new TPaveText(0.63, 0.20, 0.88, 0.77, "NDC");
     pave->SetTextAlign(12);
     pave->SetTextFont(42);
     pave->SetTextSize(0.025);
@@ -330,6 +341,7 @@ void total_data_fit_Bd() {
     pave->AddText(Form("c_{1,WT} (fixed) = %.3f", c1_wt.getVal()));
     // Floating RT/WT mixture
     pave->AddText(Form("f_{1} (fixed) = %.3f", f1.getVal()));
+    pave->AddText(Form("C_{s} = %.4f #pm %.4f", Cs.getVal(), Cs.getError()));
 
     pave->AddText(Form("N_{sig} = %.1f #pm %.1f", Nsig.getVal(), Nsig.getError()));
     pave->AddText(Form("a_{0} = %.4f #pm %.4f", a0.getVal(), a0.getError()));
