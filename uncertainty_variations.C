@@ -4,6 +4,10 @@
 #include <TAxis.h>
 #include <TLegend.h>
 #include <TStyle.h>
+#include <stdio.h>
+#include <math.h>
+#include <TLatex.h>
+
 
 void plot_Bplus_uncertainties() {
     // === Editable values (replace with your numbers) ===
@@ -16,12 +20,12 @@ void plot_Bplus_uncertainties() {
     double N_massrange = 40476.1;
 
 
-    double uncertainty_linear         = 100*abs(N_nominal - N_linearbkg)/N_nominal;
-    double uncertainty_2degreepoly    = 100*abs(N_nominal - N_seconddegree)/N_nominal;
-    double uncertainty_cb_gaussian    = 100*abs(N_nominal - N_crystalball)/N_nominal;
-    double uncertainty_fixedmean      = 100*abs(N_nominal - N_fixedmean)/N_nominal;
-    double uncertainty_triplegaussian = 100*abs(N_nominal - N_triplegaussian)/N_nominal;
-    double uncertainty_massrange      = 100*abs(N_nominal - N_massrange)/N_nominal;
+    double uncertainty_linear         = 100*abs(N_nominal - N_linearbkg)/N_nominal;        // Bkg
+    double uncertainty_2degreepoly    = 100*abs(N_nominal - N_seconddegree)/N_nominal;     // Bkg
+    double uncertainty_cb_gaussian    = 100*abs(N_nominal - N_crystalball)/N_nominal;      // Signal
+    double uncertainty_fixedmean      = 100*abs(N_nominal - N_fixedmean)/N_nominal;        // Signal
+    double uncertainty_triplegaussian = 100*abs(N_nominal - N_triplegaussian)/N_nominal;   // Signal
+    double uncertainty_massrange      = 100*abs(N_nominal - N_massrange)/N_nominal;        // Bkg
 
     std::cout << "Linear (Background): " << uncertainty_linear << " %" << std::endl;
     std::cout << "2nd Poly (Background): " << uncertainty_2degreepoly << " %" << std::endl;
@@ -29,6 +33,38 @@ void plot_Bplus_uncertainties() {
     std::cout << "Fixed Mean (Signal): " << uncertainty_fixedmean << " %" << std::endl;
     std::cout << "Triple Gaussian (Signal): " << uncertainty_triplegaussian << " %" << std::endl;
     std::cout << "Different Mass Range: " << uncertainty_massrange << " %" << std::endl;
+    std::cout << " " << std::endl;
+
+    // Statistical Error
+    double nominal_fit_uncertainty = 380.2;
+    double statistical_error = 100*(nominal_fit_uncertainty/N_nominal);
+
+    std::cout << "Statistical Error: " << statistical_error << " %" << std::endl;
+    std::cout << " " << std::endl;
+
+
+    // Total Systematic Deviation
+    double max_bkg_deviation = uncertainty_linear;
+    if (uncertainty_2degreepoly > max_bkg_deviation) {
+        max_bkg_deviation = uncertainty_2degreepoly;
+    }
+    if (uncertainty_massrange > max_bkg_deviation) {
+        max_bkg_deviation = uncertainty_massrange;
+    }
+    std::cout << "Max Bkg Deviation: " << max_bkg_deviation << " %" << std::endl;
+
+    double max_signal_deviation = uncertainty_cb_gaussian;
+    if (uncertainty_fixedmean > max_signal_deviation) {
+        max_signal_deviation = uncertainty_fixedmean;
+    }
+    if (uncertainty_triplegaussian > max_signal_deviation) {
+        max_signal_deviation = uncertainty_triplegaussian;
+    }
+    std::cout << "Max Signal Deviation: " << max_signal_deviation << " %" << std::endl;
+
+    double total_systematic_deviation = sqrt(max_bkg_deviation*max_bkg_deviation + max_signal_deviation*max_signal_deviation);
+    std::cout << "Total Systematic Deviation: " << total_systematic_deviation << " %" << std::endl;
+
 
 
     // y-range top (adjust if needed)
@@ -51,8 +87,8 @@ void plot_Bplus_uncertainties() {
     frame->GetXaxis()->SetAxisColor(0);     // hide axis line
     frame->GetXaxis()->SetNdivisions(0);    // no divisions
 
-    // All points share the same x (a single vertical column)
-    double x_col = 0.5;
+    // A single vertical column
+    double x_col = 0.2;
 
     double x1[1] = {x_col}; double y1[1] = {uncertainty_linear};
     double x2[1] = {x_col}; double y2[1] = {uncertainty_2degreepoly};
@@ -86,15 +122,28 @@ void plot_Bplus_uncertainties() {
     g_mass->Draw("P SAME");
 
     // Legend in top-right
-    TLegend* leg = new TLegend(0.53, 0.62, 0.90, 0.88);
-    leg->SetBorderSize(0); leg->SetFillStyle(0); leg->SetTextSize(0.038);
-    leg->AddEntry(g_lin , "Linear (Background)",          "p");
-    leg->AddEntry(g_p2  , "2nd Poly (Background)",        "p");
-    leg->AddEntry(g_cbG , "CB+Gaussian (Signal)",     "p");
-    leg->AddEntry(g_fix , "Fixed Mean (Signal)",      "p");
+    TLegend* leg = new TLegend(0.55, 0.62, 0.90, 0.88);
+    leg->SetBorderSize(0); leg->SetFillStyle(0); 
+    leg->SetTextSize(0.038);
+    leg->SetMargin(0.12);
+    leg->AddEntry(g_lin, "Linear (Bkg)", "p");
+    leg->AddEntry(g_p2, "2nd Poly (Bkg)", "p");
+    leg->AddEntry(g_mass, "Different Mass Range (Bkg)", "p");
+    leg->AddEntry(g_cbG, "CB+Gaussian (Signal)", "p");
+    leg->AddEntry(g_fix, "Fixed Mean (Signal)", "p");
     leg->AddEntry(g_triG, "Triple Gaussian (Signal)", "p");
-    leg->AddEntry(g_mass, "Different Mass Range", "p");
     leg->Draw();
+
+    // Add total systematic as plain text in top-right
+    TLatex latex;
+    latex.SetNDC();               // use normalized coordinates (0–1)
+    latex.SetTextSize(0.04);      // adjust size as needed
+    latex.SetTextAlign(31);       // right-aligned
+    latex.DrawLatex(0.90, 0.92, Form("Total Systematic Deviation: %.2f%%", total_systematic_deviation));
+
+    // Add statistical error text below the plot
+    latex.DrawLatex(0.90, 0.04, Form("Statistical Error: %.2f%%", statistical_error));
+
 
     c->Update();
     c->SaveAs("uncertainties_plot.pdf");
