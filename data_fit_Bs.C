@@ -89,7 +89,7 @@ void total_data_fit_Bd() {
     RooDataSet dataset("dataset", "Unbinned dataset from TTree", tree, RooArgSet(B_mass));
 
     // Signal: Double Gaussian
-    RooRealVar mean("mean", "Mean", 5.36743, 5.3, 5.4);
+    RooRealVar mean("mean", "Mean", 5.36743, 5.3, 5.4); 
 
     // MC-derived widths (FIXED constants — put your values here)
     RooRealVar sigma1("sigma1", "MC Sigma1", mc_sigma1); 
@@ -112,7 +112,7 @@ void total_data_fit_Bd() {
     RooExtendPdf signal_ext("signal_ext", "Extended Signal", signal, Nsig);
 
     // Background: Exponential model
-    RooRealVar lambda("lambda", "Lambda", -2.72, -6.0, -0.1);
+    RooRealVar lambda("lambda", "Lambda", -1.72, -6.0, -0.1);
     RooExponential expo("expo", "Background", B_mass, lambda);
 
     RooRealVar Nbkg("Nbkg", "Background Yield", 1614, 0, 1700000);
@@ -146,7 +146,7 @@ void total_data_fit_Bd() {
 
 
     // Opening and Checking MC File
-    TFile *file_mc = TFile::Open("/lstore/cms/u25lekai/Bmeson/MC/ppRef/Bs_phat5_Bfinder.root");
+    TFile *file_mc = TFile::Open("/lstore/cms/lekai/Bmeson/MC/ppRef/Bs_phat5_Bfinder.root");
     if (!file_mc || file_mc->IsZombie()) {
         std::cerr << "Error: Could not open MC file." << std::endl;
         return;

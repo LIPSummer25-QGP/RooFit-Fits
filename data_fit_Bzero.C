@@ -213,7 +213,7 @@ void total_data_fit_Bd() {
 
 
     // Opening and Checking MC File
-    TFile *file_mc = TFile::Open("/lstore/cms/u25lekai/Bmeson/MC/ppRef/Bd_phat5_Bfinder.root");
+    TFile *file_mc = TFile::Open("/lstore/cms/lekai/Bmeson/MC/ppRef/Bd_phat5_Bfinder.root");
     if (!file_mc || file_mc->IsZombie()) {
         std::cerr << "Error: Could not open MC file." << std::endl;
         return;

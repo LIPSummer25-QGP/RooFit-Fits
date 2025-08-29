@@ -65,7 +65,7 @@ void fit_mc_signal_roofit(TString particle) {
     double x_max_legend = 0.0;
 
     if (particle == "Bd"){
-        path_to_file = "/lstore/cms/u25lekai/Bmeson/MC/ppRef/Bd_phat5_Bfinder.root";
+        path_to_file = "/lstore/cms/lekai/Bmeson/MC/ppRef/Bd_phat5_Bfinder.root";
         ///lstore/cms/hlegoinha/Bmeson/MC_DATA/MC_ppRef_Bmeson/Bd_phat5_Bfinder.root
         file_name = "Bd_Gaussian_Fit.pdf";
         path_to_tree = "Bfinder/ntKstar";
@@ -80,7 +80,7 @@ void fit_mc_signal_roofit(TString particle) {
         
     }
     else if (particle == "Bu"){
-        path_to_file = "/lstore/cms/u25lekai/Bmeson/MC/ppRef/Bu_phat5_Bfinder.root";
+        path_to_file = "/lstore/cms/lekai/Bmeson/MC/ppRef/Bu_phat5_Bfinder.root";
         // /lstore/cms/hlegoinha/Bmeson/MC_DATA/MC_ppRef_Bmeson/Bu_phat5_Bfinder.root
         file_name = "Bu_Gaussian_Fit.pdf";
         path_to_tree = "Bfinder/ntKp";
@@ -365,7 +365,7 @@ void fit_mc_signal_roofit(TString particle) {
 
 void fit_mc_signal_Bs() {
     TTree*  tree          = nullptr;
-    TString path_to_file  = "/lstore/cms/u25lekai/Bmeson/MC/ppRef/Bs_phat5_Bfinder.root";
+    TString path_to_file  = "/lstore/cms/lekai/Bmeson/MC/ppRef/Bs_phat5_Bfinder.root";
     TString file_name     = "Bs_TripleGaussian_Fit.pdf";
     TString path_to_tree  = "Bfinder/ntphi";
     TString X_Axis_Title  = "m_{J/#Psi #Phi} [GeV/c^{2}]";
@@ -556,7 +556,7 @@ void fit_bd_rt_wt() {
     // ----------------------------
     // I/O and plotting config (Bd)
     // ----------------------------
-    TString path_to_file = "/lstore/cms/u25lekai/Bmeson/MC/ppRef/Bd_phat5_Bfinder.root";
+    TString path_to_file = "/lstore/cms/lekai/Bmeson/MC/ppRef/Bd_phat5_Bfinder.root";
     TString path_to_tree = "Bfinder/ntKstar";
     TString X_Axis_Title = "m_{J/#Psi K^{*}} [GeV/c^{2}]";
     TString legend_name  = "B^{0}";
@@ -573,7 +573,7 @@ void fit_bd_rt_wt() {
 
     // Legend positions (as in your Bd config)
     const double x_min_legend = 0.50;
-    const double x_max_legend = 0.88;
+    const double x_max_legend = 0.95;
 
     // ----------------------------
     // Open file & get tree
@@ -611,32 +611,51 @@ void fit_bd_rt_wt() {
         return {h, data};
     };
 
-    // Helper lambda to decorate a frame & save a canvas
-    auto savePlot = [&](RooPlot* frame, const char* pdfName, double binw, double chi2, const std::vector<std::pair<TString, TString>>& entries, const std::vector<TString>& extraLines) {
-        TCanvas* c = new TCanvas((TString("c_") + pdfName).Data(), "RooFit", 800, 600);
+    // Helper lambda to decorate a frame, draw pulls, & save a canvas
+    auto savePlot = [&](RooPlot* frame,
+                        const char* pdfName,
+                        double binw,
+                        double chi2,
+                        const std::vector<std::pair<TString, TString>>& entries,
+                        const std::vector<TString>& extraLines,
+                        const char* dataObjName,
+                        const char* modelObjName) {
+        TCanvas* c = new TCanvas((TString("c_") + pdfName).Data(), "RooFit", 800, 800);
+
+        // Two pads: top = fit, bottom = pulls
+    TPad* p1 = new TPad("p1","p1", 0.0, 0.15, 1.0, 1.0); 
+    p1->SetBottomMargin(0.04);
+    p1->SetLeftMargin(0.12);
+    p1->SetRightMargin(0.04);
+    p1->Draw();
+    p1->cd();
+
+
+        // Axes/labels for top frame (hide x labels on top pad)
         frame->GetXaxis()->SetTitle(X_Axis_Title);
         frame->GetYaxis()->SetTitle(Form("Events / ( %.4f )", binw));
         frame->GetYaxis()->SetTitleOffset(1.35);
+        frame->GetXaxis()->SetLabelSize(0);
 
         frame->Draw();
 
-        double pave_ymin = 0.42;
-        double pave_ymax = 0.72; 
+        // Default TPaveText height
+        double pave_ymin = 0.41;
+        double pave_ymax = 0.72;
 
-        // If we're drawing the combined RT+WT figure, make the params box taller
+        // Make the params box taller for the combined RT+WT figure
         if (TString(pdfName) == "Bd_RT_WT_combined_fit.pdf") {
-            pave_ymin = 0.25;
-            pave_ymax = 0.72; 
+            pave_ymin = 0.24;
+            pave_ymax = 0.72;
         }
 
-        // Legend block
+        // Legend block (top pad)
         auto leg = new TLegend(x_min_legend, 0.72, x_max_legend, 0.88);
         leg->SetTextSize(0.03);
         leg->SetTextFont(42);
         for (auto& kv : entries) {
-            // kv.first = object name on frame or empty, kv.second = legend text
             TObject* obj = nullptr;
-            const char* drawOpt = "l";                // default: line sample
+            const char* drawOpt = "l";  // default: line sample
             if (kv.first.Length()) {
                 obj = (TObject*)frame->findObject(kv.first);
                 if (kv.first.Contains("data")) drawOpt = "pe";  // data_* -> marker + errors
@@ -645,10 +664,9 @@ void fit_bd_rt_wt() {
                 leg->AddEntry((TObject*)0, kv.second, "");
             }
         }
-
         leg->Draw();
 
-        // Fit parameter box
+        // Fit parameter box (top pad)
         TPaveText* pave = new TPaveText(x_min_legend, pave_ymin, x_max_legend, pave_ymax, "NDC");
         pave->SetTextAlign(12);
         pave->SetTextFont(42);
@@ -661,9 +679,54 @@ void fit_bd_rt_wt() {
         pave->AddText(Form("#chi^{2}/ndf = %.2f", chi2));
         pave->Draw();
 
+        // ---- Bottom pad: pulls ----
+        c->cd();
+        TPad* p2 = new TPad("p2","p2", 0.0, 0.0, 1.0, 0.15);
+        p2->SetTopMargin(0.02);
+        p2->SetBottomMargin(0.38);
+        p2->SetLeftMargin(0.12);
+        p2->SetRightMargin(0.04);
+        p2->Draw();
+        p2->cd();
+
+        RooPlot* pullFrame = Bmass.frame();
+        RooHist* pullHist = frame->pullHist(dataObjName, modelObjName); // names must match
+        pullHist->SetMarkerSize(0.7);
+        pullHist->SetLineWidth(0);
+        for (int i = 0; i < pullHist->GetN(); ++i) {
+            pullHist->SetPointEXlow(i, 0);
+            pullHist->SetPointEXhigh(i, 0);
+            pullHist->SetPointEYlow(i, 0);
+            pullHist->SetPointEYhigh(i, 0);
+        }
+        pullFrame->addPlotable(pullHist, "P");
+
+        pullFrame->SetTitle("");
+        pullFrame->GetYaxis()->SetTitle("Pulls");
+        pullFrame->GetYaxis()->SetNdivisions(505);
+        pullFrame->GetYaxis()->SetTitleSize(0.13); 
+        pullFrame->GetYaxis()->SetTitleOffset(0.30); 
+        pullFrame->GetYaxis()->SetLabelSize(0.12);
+
+        pullFrame->GetXaxis()->SetTitle(X_Axis_Title);
+        pullFrame->GetXaxis()->SetTitleSize(0.14);    
+        pullFrame->GetXaxis()->SetTitleOffset(1.00);
+        pullFrame->GetXaxis()->SetLabelSize(0.12);
+
+        pullFrame->SetMinimum(-3.5);
+        pullFrame->SetMaximum(3.5);
+        pullFrame->Draw();
+
+        TLine* zeroLine = new TLine(Bmass.getMin(), 0, Bmass.getMax(), 0);
+        zeroLine->SetLineColor(kBlue);
+        zeroLine->SetLineStyle(1);
+        zeroLine->SetLineWidth(1);
+        zeroLine->Draw("same");
+
         c->SaveAs(pdfName);
         delete c;
     };
+
 
     // ===========================================================================================
     // FIT 1: isMCsignal && ACCcuts_ppRef && SELcuts_ppRef && TRGmatching  (Double Gaussian)
@@ -773,7 +836,7 @@ void fit_bd_rt_wt() {
             Form("c_{1,RT} = %.4f #pm %.4f", c1_1.getVal(), c1_1.getError()),
             Form("N_{1} = %.0f #pm %.0f", N_1.getVal(), N_1.getError())
         };
-        savePlot(fr1, "Bd_RT_fit.pdf", binw_RT, chi2_RT, legEntries, lines);
+        savePlot(fr1, "Bd_RT_fit.pdf", binw_RT, chi2_RT, legEntries, lines, "data_RT", "model_RT");
     }
 
 
@@ -804,7 +867,7 @@ void fit_bd_rt_wt() {
         Form("N_{WT} = %.0f #pm %.0f", N_2.getVal(), N_2.getError())
     };
 
-        savePlot(fr2, "Bd_WT_fit.pdf", binw_WT, chi2_WT, legEntries, lines);
+        savePlot(fr2, "Bd_WT_fit.pdf", binw_WT, chi2_WT, legEntries, lines, "data_WT", "model_WT");
     }
 
     // ===========================================================================================
@@ -878,7 +941,7 @@ void fit_bd_rt_wt() {
         Form("c_{1,WT} = %.4f #pm %.4f",       c1_2.getVal(),   c1_2.getError()),
         Form("N_{WT} = %.2f #pm %.2f",         N_WT.getVal(),   N_WT.getError())
     };
-        savePlot(fr3, "Bd_RT_WT_combined_fit.pdf", binw_ALL, chi2_ALL, legEntries, lines);
+        savePlot(fr3, "Bd_RT_WT_combined_fit.pdf", binw_ALL, chi2_ALL, legEntries, lines, "data_ALL", "total");
     }
 
     // ----------------------------
